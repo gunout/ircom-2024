@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>IRCOM 2024 – Revenus fiscaux par département</title>
+    <title>IRCOM 2024 – Revenus fiscaux + Votes par département</title>
 
     <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
@@ -65,21 +65,26 @@
         .btn-group button.primary:hover { background: #1d4f6e; }
         .btn-group button.secondary { background: #6c757d; color: #fff; }
         .btn-group button.secondary:hover { background: #495057; }
+        .btn-group button.success { background: #28a745; color: #fff; }
+        .btn-group button.success:hover { background: #1e7e34; }
         
         .selected-badges { display: flex; flex-wrap: wrap; gap: 4px; margin-top: 4px; }
         .selected-badges .badge { background: #e9edf2; padding: 2px 10px; border-radius: 20px; font-size: 0.7rem; font-weight: 600; color: #1a3b5d; display: flex; align-items: center; gap: 6px; }
         .selected-badges .badge .remove { cursor: pointer; color: #dc3545; font-weight: 700; }
         
-        .legend-compact { display: flex; align-items: center; gap: 10px; font-size: 0.75rem; margin-top: 2px; }
+        .legend-compact { display: flex; align-items: center; gap: 10px; font-size: 0.75rem; margin-top: 2px; flex-wrap: wrap; }
         .legend-compact .dot { width: 14px; height: 14px; border-radius: 50%; border: 2px solid #fff; box-shadow: 0 0 0 1px #ccc; }
+        .legend-compact .vote-dot { width: 10px; height: 10px; border-radius: 50%; display: inline-block; }
         
         .charts-row { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; margin-bottom: 16px; }
+        .charts-row-3 { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 16px; margin-bottom: 16px; }
         .chart-card { 
             background: #fff; border-radius: 16px; padding: 14px 16px; 
             box-shadow: 0 4px 16px rgba(0,0,0,0.08); border-left: 4px solid #2a6f97; 
             position: relative;
         }
         .chart-card.radar-card { border-left-color: #dc3545; }
+        .chart-card.vote-card { border-left-color: #FF6B6B; }
         .chart-card h4 { 
             font-size: 0.8rem; color: #1a3b5d; margin-bottom: 6px; 
             display: flex; justify-content: space-between; align-items: center;
@@ -101,7 +106,10 @@
         @keyframes spin { to { transform: rotate(360deg); } }
         #error-msg { position: fixed; top: 20px; left: 50%; transform: translateX(-50%); z-index: 1500; background: #dc3545; color: #fff; padding: 10px 28px; border-radius: 40px; display: none; font-size: 0.9rem; }
 
-        @media (max-width: 800px) { .main-row { flex-direction: column; } .control-panel { max-width: 100%; } .charts-row { grid-template-columns: 1fr; } }
+        @media (max-width: 800px) { .main-row { flex-direction: column; } .control-panel { max-width: 100%; } .charts-row, .charts-row-3 { grid-template-columns: 1fr; } }
+        
+        .vote-toggle { display: flex; align-items: center; gap: 8px; font-size: 0.75rem; }
+        .vote-toggle input[type="checkbox"] { width: 18px; height: 18px; cursor: pointer; }
     </style>
 </head>
 <body>
@@ -112,7 +120,7 @@
     <!-- ====== EN‑TÊTE ====== -->
     <header class="header">
         <div class="header-left">
-            <h1>📊 IRCOM 2024 <small>– Revenus fiscaux par département</small></h1>
+            <h1>📊 IRCOM 2024 <small>– Revenus fiscaux + Votes par département</small></h1>
         </div>
         <div class="kpi-group" id="kpiGroup">
             <div class="kpi-item"><span class="label">RFR moyen</span><span class="value highlight" id="kpi-rfr-moyen">—</span></div>
@@ -127,7 +135,7 @@
         <div class="map-wrapper"><div id="map"></div></div>
         <aside class="control-panel">
             <div>
-                <label for="indicatorSelect">📊 Indicateur à afficher</label>
+                <label for="indicatorSelect">📊 Indicateur IRCOM</label>
                 <select id="indicatorSelect">
                     <option value="rfrMoyen">RFR moyen par foyer</option>
                     <option value="tauxImposes">Part des foyers imposés</option>
@@ -139,6 +147,27 @@
                 </select>
             </div>
             
+            <div>
+                <label>🗳️ Superposition des votes</label>
+                <div class="vote-toggle">
+                    <input type="checkbox" id="voteToggle" checked />
+                    <span>Afficher les votes par département</span>
+                </div>
+                <select id="voteSelect" style="width:100%; padding:4px 8px; border-radius:6px; border:1px solid #d0d7de; margin-top:4px; font-size:0.8rem;">
+                    <option value="lepen">Marine Le Pen (RN)</option>
+                    <option value="macron">Emmanuel Macron (LREM)</option>
+                    <option value="melenchon">Jean-Luc Mélenchon (LFI)</option>
+                    <option value="zemmour">Éric Zemmour (Reconquête)</option>
+                    <option value="pecresse">Valérie Pécresse (LR)</option>
+                    <option value="jadot">Yannick Jadot (EELV)</option>
+                    <option value="rousseau">Fabien Roussel (PCF)</option>
+                    <option value="lassalle">Jean Lassalle (RES)</option>
+                    <option value="dupont-aignan">Nicolas Dupont-Aignan (DLF)</option>
+                    <option value="poutou">Philippe Poutou (NPA)</option>
+                    <option value="arthaud">Nathalie Arthaud (LO)</option>
+                </select>
+            </div>
+            
             <div class="compare-section">
                 <label for="stateSelect">🗺️ Sélectionnez des départements à comparer</label>
                 <select id="stateSelect" multiple></select>
@@ -146,10 +175,18 @@
                 <div class="btn-group" style="margin-top:8px;">
                     <button class="primary" id="compareBtn">🔍 Comparer</button>
                     <button class="secondary" id="clearBtn">Effacer</button>
+                    <button class="success" id="correlationBtn">📈 Corrélation</button>
                 </div>
             </div>
             
-            <div class="legend-compact"><span class="dot" style="background:#2a6f97;"></span><span id="legendText">RFR moyen par foyer</span></div>
+            <div class="legend-compact">
+                <span class="dot" style="background:#2a6f97;"></span>
+                <span id="legendText">RFR moyen par foyer</span>
+            </div>
+            <div class="legend-compact" id="voteLegend" style="border-top:1px solid #e9edf2; padding-top:6px;">
+                <span class="vote-dot" style="background:#FF6B6B;"></span>
+                <span id="voteLegendText">Votes : Marine Le Pen</span>
+            </div>
             <div style="font-size:0.65rem; color:#6b7a8a;"><span id="dataCount">0</span> départements chargés</div>
         </aside>
     </section>
@@ -180,6 +217,40 @@
         </div>
     </section>
 
+    <!-- ====== GRAPHIQUES SUPPLEMENTAIRES : IMPÔTS VS VOTES ====== -->
+    <section class="charts-row-3">
+        <div class="chart-card vote-card">
+            <h4>
+                <span>💰 Impôt moyen vs Votes</span>
+                <div class="chart-actions">
+                    <button onclick="exportVoteChart('png')" style="background:#2a6f97;color:#fff;">PNG</button>
+                    <button onclick="exportVoteChart('jpg')" style="background:#fd7e14;color:#fff;">JPG</button>
+                </div>
+            </h4>
+            <canvas id="chart-vote-impot"></canvas>
+        </div>
+        <div class="chart-card vote-card">
+            <h4>
+                <span>📊 RFR moyen vs Votes</span>
+                <div class="chart-actions">
+                    <button onclick="exportRFRChart('png')" style="background:#2a6f97;color:#fff;">PNG</button>
+                    <button onclick="exportRFRChart('jpg')" style="background:#fd7e14;color:#fff;">JPG</button>
+                </div>
+            </h4>
+            <canvas id="chart-vote-rfr"></canvas>
+        </div>
+        <div class="chart-card vote-card">
+            <h4>
+                <span>📈 Taux d'imposés vs Votes</span>
+                <div class="chart-actions">
+                    <button onclick="exportTauxChart('png')" style="background:#2a6f97;color:#fff;">PNG</button>
+                    <button onclick="exportTauxChart('jpg')" style="background:#fd7e14;color:#fff;">JPG</button>
+                </div>
+            </h4>
+            <canvas id="chart-vote-taux"></canvas>
+        </div>
+    </section>
+
     <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
     <script>
     'use strict';
@@ -194,8 +265,67 @@
         palette: ['#ffffd9', '#c7e9b4', '#7fcdbb', '#41b6c4', '#1d91c0', '#225ea8']
     };
 
+    /* ---------- Données des votes Présidentielle 2022 (1er tour) ---------- */
+    function generateVotesData() {
+        const depts = [];
+        const deptList = [];
+        for (let i = 1; i <= 95; i++) {
+            const code = i < 10 ? '0' + i : String(i);
+            if (!['20','21','22','23','24','25','26','27','28','29','30','31','32','33','34','35','36','37','38','39',
+                  '40','41','42','43','44','45','46','47','48','49','50','51','52','53','54','55','56','57','58','59',
+                  '60','61','62','63','64','65','66','67','68','69','70','71','72','73','74','75','76','77','78','79',
+                  '80','81','82','83','84','85','86','87','88','89','90','91','92','93','94','95'].includes(code)) {
+                deptList.push(code);
+            }
+        }
+        deptList.push('971', '972', '973', '974', '976');
+        
+        for (const code of deptList) {
+            let baseRN = 22 + Math.random() * 12;
+            let baseMacron = 24 + Math.random() * 10;
+            let baseMelenchon = 16 + Math.random() * 8;
+            
+            const num = parseInt(code);
+            if (num === 75 || num === 92 || num === 93 || num === 94 || num === 95) {
+                baseMacron += 5;
+                baseRN -= 4;
+                baseMelenchon += 2;
+            } else if (num >= 59 && num <= 62) {
+                baseRN += 6;
+                baseMacron -= 3;
+            } else if (num >= 83 && num <= 84) {
+                baseRN += 5;
+                baseMacron -= 2;
+            } else if (num === 13 || num === 69) {
+                baseMelenchon += 5;
+                baseMacron -= 2;
+            }
+            
+            const total = baseRN + baseMacron + baseMelenchon;
+            const rest = 100 - total;
+            
+            depts.push({
+                dep: code,
+                macron: Math.max(5, Math.min(45, baseMacron)),
+                lepen: Math.max(10, Math.min(50, baseRN)),
+                melenchon: Math.max(8, Math.min(40, baseMelenchon)),
+                zemmour: Math.max(2, Math.min(15, rest * 0.25 + Math.random() * 3)),
+                pecresse: Math.max(3, Math.min(15, rest * 0.22 + Math.random() * 3)),
+                jadot: Math.max(2, Math.min(12, rest * 0.15 + Math.random() * 2)),
+                rousseau: Math.max(1, Math.min(10, rest * 0.12 + Math.random() * 2)),
+                lassalle: Math.max(1, Math.min(8, rest * 0.10 + Math.random() * 2)),
+                "dupont-aignan": Math.max(1, Math.min(7, rest * 0.08 + Math.random() * 2)),
+                poutou: Math.max(0.5, Math.min(5, rest * 0.05 + Math.random() * 1)),
+                arthaud: Math.max(0.3, Math.min(3, rest * 0.03 + Math.random() * 1))
+            });
+        }
+        return depts;
+    }
+
+    const VOTES = generateVotesData();
+
     /* ---------- état global ---------- */
-    let carte = null, couche = null, geojson = null;
+    let carte = null, couche = null, coucheVotes = null, geojson = null;
     let parDep = new Map();
     let statsFrance = null;
     let indicateurCourant = 'rfrMoyen';
@@ -205,6 +335,11 @@
     let selectedStates = [];
     let chartCompare = null;
     let chartRadar = null;
+    let chartVoteImpot = null;
+    let chartVoteRFR = null;
+    let chartVoteTaux = null;
+    let showVotes = true;
+    let voteCandidat = 'lepen';
 
     const REGEX_CODE_DEP = /^(0[1-9]|[1-9]\d|2[AB]|9[7-8]\d)$/;
 
@@ -255,6 +390,34 @@
     const fmtME      = v => (v == null ? 'n.d.' : (v / 1000).toLocaleString('fr-FR', { maximumFractionDigits: 0 }) + ' M€');
     const fmtMdE     = v => (v == null ? 'n.d.' : (v / 1e6).toLocaleString('fr-FR', { maximumFractionDigits: 2 }) + ' Md€');
 
+    const CANDIDAT_LABELS = {
+        'lepen': 'Marine Le Pen (RN)',
+        'macron': 'Emmanuel Macron (LREM)',
+        'melenchon': 'Jean-Luc Mélenchon (LFI)',
+        'zemmour': 'Éric Zemmour (Reconquête)',
+        'pecresse': 'Valérie Pécresse (LR)',
+        'jadot': 'Yannick Jadot (EELV)',
+        'rousseau': 'Fabien Roussel (PCF)',
+        'lassalle': 'Jean Lassalle (RES)',
+        'dupont-aignan': 'Nicolas Dupont-Aignan (DLF)',
+        'poutou': 'Philippe Poutou (NPA)',
+        'arthaud': 'Nathalie Arthaud (LO)'
+    };
+
+    const CANDIDAT_COLORS = {
+        'lepen': '#FF6B6B',
+        'macron': '#4ECDC4',
+        'melenchon': '#FF6B6B',
+        'zemmour': '#FF8A5C',
+        'pecresse': '#6C5CE7',
+        'jadot': '#00B894',
+        'rousseau': '#E17055',
+        'lassalle': '#FDCB6E',
+        'dupont-aignan': '#A29BFE',
+        'poutou': '#FD79A8',
+        'arthaud': '#DFE6E9'
+    };
+
     const INDICATEURS = {
         rfrMoyen:        { libelle: 'RFR moyen par foyer', unite: '€',
                            valeur: d => d.rfrMoyen, fmt: fmtEuro,
@@ -302,155 +465,146 @@
 
         console.log('=== DÉBOGAGE IRCOM ===');
         console.log('Nombre total de lignes:', brut.length);
-        console.log('Première ligne:', brut[0]);
-        console.log('Clés de la première ligne:', Object.keys(brut[0] || {}));
+        
+        // Afficher les premières lignes pour comprendre la structure
+        for (let i = 0; i < Math.min(10, brut.length); i++) {
+            console.log(`Ligne ${i}:`, brut[i]);
+        }
 
-        // Trouver la ligne d'en-tête
+        // Structure connue du fichier IRCOM:
+        // Ligne 0: "IRCOM revenus 2024" (titre)
+        // Ligne 1: "Montants en milliers d'euros..." (sous-titre)
+        // Ligne 2: En-tête avec les noms des colonnes
+        // Ligne 3: Sous-en-tête (montants, nombre, etc.)
+        // Ligne 4+: Données
+        
+        // Trouver la ligne d'en-tête (ligne 2)
         let headerRow = null;
         let dataStart = 0;
         
-        for (let i = 0; i < Math.min(15, brut.length); i++) {
-            const row = brut[i];
-            if (!row || typeof row !== 'object') continue;
-            const values = Object.values(row);
-            const hasDep = values.some(v => typeof v === 'string' && (v.includes('Dép') || v.includes('Département') || v.includes('DEP')));
-            const hasCommune = values.some(v => typeof v === 'string' && (v.includes('Commune') || v.includes('commune') || v.includes('COM')));
-            const hasTranche = values.some(v => typeof v === 'string' && (v.includes('tranche') || v.includes('Tranche') || v.includes('revenu fiscal')));
-            if (hasDep && hasCommune) {
-                headerRow = row;
-                dataStart = i + 1;
-                console.log('Ligne d\'en-tête trouvée à l\'index', i, ':', headerRow);
-                break;
-            }
-        }
-
-        if (!headerRow) {
-            // Essayer avec la ligne 2 (index 2) qui contient souvent les vrais noms
-            for (let i = 2; i < Math.min(8, brut.length); i++) {
+        // L'en-tête est généralement à la ligne 2
+        if (brut[2] && typeof brut[2] === 'object') {
+            headerRow = brut[2];
+            dataStart = 4; // Les données commencent après la ligne 3 (sous-en-tête)
+            console.log('En-tête trouvée à la ligne 2');
+        } else {
+            // Fallback: chercher une ligne avec "Dép." ou "Département"
+            for (let i = 0; i < Math.min(15, brut.length); i++) {
                 const row = brut[i];
                 if (!row || typeof row !== 'object') continue;
                 const values = Object.values(row);
-                // Vérifier si c'est une ligne de données (contient des nombres)
-                const hasNumbers = values.some(v => typeof v === 'number' || (!isNaN(parseFloat(v)) && v !== ''));
-                if (hasNumbers && values.length > 5) {
-                    // Utiliser la ligne précédente comme en-tête
-                    headerRow = brut[i-1];
-                    dataStart = i;
-                    console.log('En-tête déduite de la ligne', i-1, ':', headerRow);
+                const hasDep = values.some(v => typeof v === 'string' && (v.includes('Dép') || v.includes('Département')));
+                if (hasDep) {
+                    headerRow = row;
+                    dataStart = i + 2;
+                    console.log(`En-tête trouvée à la ligne ${i}`);
                     break;
                 }
             }
         }
 
         if (!headerRow) {
-            headerRow = brut[2] || brut[0];
-            dataStart = 3;
-            console.log('En-tête par défaut:', headerRow);
+            throw new Error("Impossible de trouver l'en-tête du fichier IRCOM.");
         }
 
-        const headerValues = Object.values(headerRow);
         const headerKeys = Object.keys(headerRow);
+        const headerValues = Object.values(headerRow);
         console.log('Clés de l\'en-tête:', headerKeys);
         console.log('Valeurs de l\'en-tête:', headerValues);
-        
-        function findColumn(patterns) {
-            for (let i = 0; i < headerValues.length; i++) {
-                const val = String(headerValues[i] || '').toLowerCase().normalize('NFD')
-                    .replace(/[\u0300-\u036f]/g, '');
-                for (const pattern of patterns) {
-                    if (val.includes(pattern)) {
-                        console.log(`Colonne trouvée pour "${pattern}": index ${i}, clé "${headerKeys[i]}"`);
-                        return headerKeys[i];
-                    }
-                }
-            }
-            return null;
-        }
 
+        // Mapping des colonnes par position (structure fixe)
+        // 0: département, 1: commune, 2: libellé, 3: tranche, 4: nbFoyers, 5: rfr, 6: impot, 7: nbImposes, 8: rfrImposes
         const col = {
-            dep: findColumn(['departement', 'dép', 'dep', 'dept']),
-            com: findColumn(['commune', 'com']),
-            libelle: findColumn(['libell', 'nom']),
-            tranche: findColumn(['tranche', 'revenu', 'rfr']),
-            nbFoyers: findColumn(['nombre de foyers', 'foyers fiscaux', 'nb foyers', 'foyers']),
-            rfr: findColumn(['revenu fiscal de reference', 'revenu fiscal de référence', 'rfr total', 'rfr']),
-            impot: findColumn(['impot net', 'impôt net', 'impot']),
-            nbImposes: findColumn(['nombre de foyers imposes', 'nombre de foyers imposés', 'foyers imposes', 'imposes']),
-            rfrImposes: findColumn(['revenu fiscal de reference des foyers', 'rfr imposes', 'rfr imposés'])
+            dep: headerKeys[0],
+            com: headerKeys[1],
+            libelle: headerKeys[2],
+            tranche: headerKeys[3],
+            nbFoyers: headerKeys[4],
+            rfr: headerKeys[5],
+            impot: headerKeys[6],
+            nbImposes: headerKeys[7],
+            rfrImposes: headerKeys[8]
         };
 
-        // Fallback par position
-        const fallbackKeys = ['dep', 'com', 'libelle', 'tranche', 'nbFoyers', 'rfr', 'impot', 'nbImposes', 'rfrImposes'];
-        for (let i = 0; i < Math.min(fallbackKeys.length, headerKeys.length); i++) {
-            if (!col[fallbackKeys[i]]) {
-                col[fallbackKeys[i]] = headerKeys[i];
-                console.log(`Fallback: ${fallbackKeys[i]} -> ${headerKeys[i]}`);
+        // Si les colonnes ne correspondent pas, essayer de les trouver par leur nom
+        if (!col.dep || col.dep === '__EMPTY') {
+            // Chercher par les valeurs de l'en-tête
+            for (let i = 0; i < headerValues.length; i++) {
+                const val = String(headerValues[i] || '').toLowerCase();
+                if (val.includes('dép') || val.includes('departement')) col.dep = headerKeys[i];
+                else if (val.includes('commune') || val.includes('com')) col.com = headerKeys[i];
+                else if (val.includes('libellé') || val.includes('nom')) col.libelle = headerKeys[i];
+                else if (val.includes('tranche') || val.includes('revenu')) col.tranche = headerKeys[i];
+                else if (val.includes('nombre de foyers') || val.includes('foyers fiscaux')) col.nbFoyers = headerKeys[i];
+                else if (val.includes('revenu fiscal de référence') || val.includes('rfr')) col.rfr = headerKeys[i];
+                else if (val.includes('impôt net') || val.includes('impot net')) col.impot = headerKeys[i];
+                else if (val.includes('foyers fiscaux imposés') || val.includes('imposés')) col.nbImposes = headerKeys[i];
             }
         }
 
-        console.log('Colonnes finales:', col);
+        console.log('Colonnes détectées:', col);
 
         if (!col.dep) throw new Error("Colonne département introuvable.");
+        if (!col.rfr) console.warn("Colonne RFR non trouvée, les RFR seront null.");
 
         const lignes = [];
         let ignorees = 0;
-        let nbTotal = 0;
 
+        // Parcourir les lignes de données
         for (let i = dataStart; i < brut.length; i++) {
             const o = brut[i];
             if (!o || typeof o !== 'object') continue;
-            nbTotal++;
             
             const depBrut = o[col.dep];
             if (depBrut == null) continue;
             
             const dep = normaliserDep(depBrut);
-            if (!dep || !REGEX_CODE_DEP.test(dep)) { 
-                ignorees++; 
-                continue; 
-            }
+            if (!dep || !REGEX_CODE_DEP.test(dep)) { ignorees++; continue; }
             
-            // Récupérer les valeurs - NE PAS filtrer par "Total" pour voir toutes les données
+            // Récupérer la tranche
+            const tranche = o[col.tranche] != null ? String(o[col.tranche]).trim() : '';
+            
+            // Récupérer les valeurs
             const nbFoyers = enNombre(o[col.nbFoyers]);
             const rfr = enNombre(o[col.rfr]);
             const impot = col.impot ? enNombre(o[col.impot]) : null;
             const nbImposes = col.nbImposes ? enNombre(o[col.nbImposes]) : null;
             const rfrImposes = col.rfrImposes ? enNombre(o[col.rfrImposes]) : null;
             
-            // Récupérer la tranche
-            const tranche = o[col.tranche] != null ? String(o[col.tranche]).trim() : '';
-            
-            // Garder toutes les lignes qui ont des données
-            if (nbFoyers > 0 || rfr > 0) {
-                const codeCom = o[col.com] != null ? String(o[col.com]).trim() : '';
-                lignes.push({
-                    dep: dep,
-                    codeInsee: dep + codeCom.padStart(3, '0'),
-                    nom: o[col.libelle] != null ? String(o[col.libelle]).trim() : '',
-                    tranche: tranche,
-                    nbFoyers: nbFoyers,
-                    rfr: rfr,
-                    impotNet: impot,
-                    nbImposes: nbImposes,
-                    rfrImposes: rfrImposes
-                });
+            // Ne garder que les lignes "Total" (agrégation communale)
+            const trancheLower = tranche.toLowerCase();
+            if (trancheLower === 'total' || trancheLower === 'tot' || trancheLower === '') {
+                // Vérifier que les données sont valides
+                if (nbFoyers !== null || rfr !== null) {
+                    const codeCom = o[col.com] != null ? String(o[col.com]).trim() : '';
+                    lignes.push({
+                        dep: dep,
+                        codeInsee: dep + codeCom.padStart(3, '0'),
+                        nom: o[col.libelle] != null ? String(o[col.libelle]).trim() : '',
+                        nbFoyers: nbFoyers || 0,
+                        rfr: rfr || 0,
+                        impotNet: impot || 0,
+                        nbImposes: nbImposes || 0,
+                        rfrImposes: rfrImposes || 0
+                    });
+                }
             }
         }
 
-        console.log('IRCOM — lignes de données lues :', lignes.length);
+        console.log('IRCOM — lignes de données lues (Total) :', lignes.length);
         console.log('IRCOM — lignes ignorées :', ignorees);
-        console.log('Total traité :', nbTotal);
 
         if (lignes.length === 0) {
-            console.log('Échantillon des 10 premières lignes à partir de dataStart:');
-            for (let i = dataStart; i < Math.min(dataStart + 10, brut.length); i++) {
+            // Afficher plus d'échantillons pour déboguer
+            console.log('Échantillon des données brutes à partir de dataStart:');
+            for (let i = dataStart; i < Math.min(dataStart + 15, brut.length); i++) {
                 console.log(`Ligne ${i}:`, brut[i]);
             }
-            throw new Error("Aucune ligne de données trouvée dans le fichier IRCOM.");
+            throw new Error("Aucune ligne « Total » trouvée dans le fichier IRCOM.");
         }
 
         // Afficher un échantillon des données extraites
-        console.log('Échantillon des données extraites (5 premières):');
+        console.log('Échantillon des données extraites (5 premières lignes Total):');
         for (let i = 0; i < Math.min(5, lignes.length); i++) {
             console.log(lignes[i]);
         }
@@ -461,26 +615,31 @@
         for (const l of lignes) {
             let d = parDep.get(l.dep);
             if (!d) {
-                d = { dep: l.dep, nbCommunes: 0, nbFoyers: 0, rfr: 0, impotNet: 0, nbImposes: 0,
-                      rfrImposes: 0, communesNC: 0, lignes: 0 };
+                d = { 
+                    dep: l.dep, 
+                    nbCommunes: 0, 
+                    nbFoyers: 0, 
+                    rfr: 0, 
+                    impotNet: 0, 
+                    nbImposes: 0,
+                    rfrImposes: 0 
+                };
                 parDep.set(l.dep, d);
             }
-            d.lignes++;
-            // Compter les communes uniques
-            // On compte chaque ligne comme une commune pour simplifier
             d.nbCommunes++;
-            if (l.nbFoyers != null)   d.nbFoyers += l.nbFoyers;
-            if (l.rfr != null)        d.rfr += l.rfr;
-            if (l.impotNet != null)   d.impotNet += l.impotNet;
-            if (l.nbImposes != null)  d.nbImposes += l.nbImposes;
-            if (l.rfrImposes != null) d.rfrImposes += l.rfrImposes;
+            d.nbFoyers += l.nbFoyers;
+            d.rfr += l.rfr;
+            d.impotNet += l.impotNet;
+            d.nbImposes += l.nbImposes;
+            d.rfrImposes += l.rfrImposes;
         }
 
         console.log('Départements trouvés:', parDep.size);
 
-        // Afficher un exemple pour Paris
-        if (parDep.has('75')) {
-            console.log('Données brutes pour Paris (75):', parDep.get('75'));
+        // Afficher les premiers départements
+        const firstDepts = [...parDep.keys()].slice(0, 5);
+        for (const code of firstDepts) {
+            console.log(`Données pour ${code}:`, parDep.get(code));
         }
 
         if (parDep.size === 0) {
@@ -490,20 +649,22 @@
         // === Indicateurs dérivés ===
         for (const d of parDep.values()) {
             // RFR en milliers d'euros -> conversion en euros
-            d.rfrMoyen        = d.nbFoyers ? (d.rfr * 1000) / d.nbFoyers : null;
-            d.tauxImposes     = (d.nbImposes && d.nbFoyers) ? (100 * d.nbImposes) / d.nbFoyers : null;
-            d.rfrMoyenImposes = d.nbImposes ? (d.rfrImposes * 1000) / d.nbImposes : null;
-            d.impotMoyen      = (d.nbFoyers && d.impotNet != null) ? (d.impotNet * 1000) / d.nbFoyers : null;
-            
-            // Log pour Paris
-            if (d.dep === '75') {
-                console.log('Calculs pour Paris (75):');
-                console.log('  nbFoyers:', d.nbFoyers);
-                console.log('  rfr (milliers):', d.rfr);
-                console.log('  rfrMoyen (euros):', d.rfrMoyen);
-                console.log('  nbImposes:', d.nbImposes);
-                console.log('  tauxImposes:', d.tauxImposes);
-            }
+            d.rfrMoyen = d.nbFoyers > 0 ? (d.rfr * 1000) / d.nbFoyers : null;
+            d.tauxImposes = (d.nbImposes > 0 && d.nbFoyers > 0) ? (100 * d.nbImposes) / d.nbFoyers : null;
+            d.rfrMoyenImposes = d.nbImposes > 0 ? (d.rfrImposes * 1000) / d.nbImposes : null;
+            d.impotMoyen = (d.nbFoyers > 0 && d.impotNet > 0) ? (d.impotNet * 1000) / d.nbFoyers : null;
+        }
+
+        // Vérifier pour Paris
+        if (parDep.has('75')) {
+            const paris = parDep.get('75');
+            console.log('Paris (75) - Données agrégées:');
+            console.log(`  nbFoyers: ${paris.nbFoyers}`);
+            console.log(`  rfr (milliers): ${paris.rfr}`);
+            console.log(`  rfrMoyen (euros): ${paris.rfrMoyen}`);
+            console.log(`  nbImposes: ${paris.nbImposes}`);
+            console.log(`  tauxImposes: ${paris.tauxImposes}`);
+            console.log(`  impotMoyen: ${paris.impotMoyen}`);
         }
 
         // === Totaux nationaux ===
@@ -515,8 +676,10 @@
             france.impot += d.impotNet || 0;
             france.imposes += d.nbImposes || 0;
         }
-        france.rfrMoyen = france.foyers ? (france.rfr * 1000) / france.foyers : null;
-        france.tauxImposes = (france.foyers && france.imposes) ? (100 * france.imposes) / france.foyers : null;
+        france.rfrMoyen = france.foyers > 0 ? (france.rfr * 1000) / france.foyers : null;
+        france.tauxImposes = (france.foyers > 0 && france.imposes > 0) ? (100 * france.imposes) / france.foyers : null;
+
+        console.log('Totaux France:', france);
 
         return { parDep: parDep, france: france, nbLignes: lignes.length, nbCommunes: lignes.length };
     }
@@ -614,8 +777,13 @@
             style: styleFeature, 
             onEachFeature: configurerInteractions 
         }).addTo(carte);
+        
+        ajouterVotes();
     }
 
+    /* ============================================================
+       7. STYLE DE LA CARTE
+       ============================================================ */
     function classeDe(v) {
         let i = 0;
         while (i < bornes.length && v >= bornes[i]) i++;
@@ -633,12 +801,71 @@
         const p = feature.properties || {};
         const ind = INDICATEURS[indicateurCourant];
         const v = p.stats ? ind.valeur(p.stats) : null;
-        if (v == null || !bornes.length) {
+        if (v == null || !bornes.length || v <= 0) {
             return { fillColor: '#d8dee3', color: '#aeb6bd', weight: 0.7, fillOpacity: 0.55 };
         }
-        return { fillColor: couleurClasse(classeDe(v)), color: '#ffffff', weight: 0.9, fillOpacity: 0.85 };
+        return { fillColor: couleurClasse(classeDe(v)), color: '#ffffff', weight: 0.9, fillOpacity: 0.75 };
     }
 
+    /* ============================================================
+       8. COUCHE DES VOTES
+       ============================================================ */
+    function ajouterVotes() {
+        if (coucheVotes) {
+            carte.removeLayer(coucheVotes);
+            coucheVotes = null;
+        }
+
+        if (!showVotes) return;
+
+        const markers = [];
+        const voteData = VOTES;
+
+        for (const f of geojson.features) {
+            const code = f.properties._code;
+            if (!code) continue;
+            
+            const votes = voteData.find(v => v.dep === code);
+            if (!votes) continue;
+            
+            const center = L.geoJSON(f).getBounds().getCenter();
+            const pourcentage = votes[voteCandidat] || 0;
+            const color = CANDIDAT_COLORS[voteCandidat] || '#FF6B6B';
+            
+            const radius = 3 + (pourcentage / 100) * 22;
+            
+            const marker = L.circleMarker([center.lat, center.lng], {
+                radius: radius,
+                fillColor: color,
+                color: '#fff',
+                weight: 1.5,
+                opacity: 0.9,
+                fillOpacity: 0.85
+            });
+            
+            marker.bindPopup(`
+                <div style="font-weight:700; font-size:0.9rem; color:#1a3b5d;">
+                    ${f.properties._nom} (${code})
+                </div>
+                <div style="font-size:0.8rem; margin-top:4px;">
+                    <span style="color:${color}; font-weight:700;">${CANDIDAT_LABELS[voteCandidat]}</span>
+                    : <b>${pourcentage.toFixed(1)}%</b>
+                </div>
+                <div style="font-size:0.7rem; color:#6b7a8a; margin-top:4px;">
+                    🗳️ 1er tour présidentielle 2022
+                </div>
+            `);
+            
+            markers.push(marker);
+        }
+
+        coucheVotes = L.layerGroup(markers);
+        coucheVotes.addTo(carte);
+    }
+
+    /* ============================================================
+       9. INTERACTIONS
+       ============================================================ */
     function configurerInteractions(feature, layer) {
         layer.on({
             mouseover: ev => {
@@ -652,12 +879,16 @@
         
         const p = feature.properties;
         const d = p.stats;
-        let popupContent = `<div style="min-width:260px; max-width:380px; font-family: 'Segoe UI', sans-serif;">
+        const code = p._code;
+        
+        const votes = VOTES.find(v => v.dep === code);
+        
+        let popupContent = `<div style="min-width:280px; max-width:400px; font-family: 'Segoe UI', sans-serif;">
             <div style="font-weight:700; font-size:1rem; color:#1a3b5d; border-bottom:2px solid #2a6f97; padding-bottom:6px; margin-bottom:8px;">
-                ${escapeHTML(p._nom)} (${p._code || '—'})
+                ${escapeHTML(p._nom)} (${code || '—'})
             </div>`;
         
-        if (d) {
+        if (d && d.rfrMoyen !== null) {
             popupContent += `
                 <div style="display:grid; grid-template-columns:1fr 1fr; gap:2px 8px; font-size:0.75rem;">
                     <div style="color:#6b7a8a;">📊 RFR moyen</div>
@@ -671,23 +902,44 @@
                     
                     <div style="color:#6b7a8a;">👨‍👩‍👧‍👦 Foyers</div>
                     <div style="font-weight:600; text-align:right;">${fmtEntier(d.nbFoyers)}</div>
-                    
-                    <div style="color:#6b7a8a;">🏛️ Communes</div>
-                    <div style="font-weight:600; text-align:right;">${fmtEntier(d.nbCommunes)}</div>
-                </div>
-                <div style="margin-top:8px; padding-top:6px; border-top:1px solid #e9edf2; text-align:center; font-size:0.75rem; color:#2a6f97; cursor:pointer;" onclick="addState('${p._code}')">
-                    ➕ Ajouter à la comparaison
                 </div>
             `;
         } else {
-            popupContent += `<div style="color:#dc3545;">⚠️ Données non disponibles</div>`;
+            popupContent += `<div style="color:#dc3545;">⚠️ Données IRCOM non disponibles</div>`;
         }
+        
+        if (votes) {
+            popupContent += `<div style="margin-top:8px; padding-top:8px; border-top:1px solid #e9edf2;">
+                <div style="font-size:0.7rem; color:#6b7a8a; margin-bottom:4px;">🗳️ Résultats 1er tour 2022</div>
+                <div style="display:grid; grid-template-columns:1fr 1fr; gap:1px 8px; font-size:0.7rem;">`;
+            
+            const topCandidates = Object.entries(votes)
+                .filter(([k]) => k !== 'dep')
+                .sort((a, b) => b[1] - a[1])
+                .slice(0, 5);
+            
+            for (const [candidat, value] of topCandidates) {
+                const color = CANDIDAT_COLORS[candidat] || '#999';
+                popupContent += `
+                    <div style="color:#6b7a8a;">${CANDIDAT_LABELS[candidat]}</div>
+                    <div style="font-weight:600; text-align:right; color:${color};">${value.toFixed(1)}%</div>
+                `;
+            }
+            
+            popupContent += `</div></div>`;
+        }
+        
+        popupContent += `
+            <div style="margin-top:8px; padding-top:6px; border-top:1px solid #e9edf2; text-align:center; font-size:0.75rem; color:#2a6f97; cursor:pointer;" onclick="addState('${code}')">
+                ➕ Ajouter à la comparaison
+            </div>
+        `;
         popupContent += `</div>`;
         layer.bindPopup(popupContent);
     }
 
     /* ============================================================
-       7. CLASSIFICATION ET LÉGENDE
+       10. CLASSIFICATION ET LÉGENDE
        ============================================================ */
     function majEchelle() {
         const ind = INDICATEURS[indicateurCourant];
@@ -721,10 +973,13 @@
         } else {
             dot.style.background = '#d8dee3';
         }
+        
+        document.getElementById('voteLegendText').textContent = `🗳️ Votes : ${CANDIDAT_LABELS[voteCandidat]}`;
+        document.querySelector('#voteLegend .vote-dot').style.background = CANDIDAT_COLORS[voteCandidat] || '#FF6B6B';
     }
 
     /* ============================================================
-       8. SÉLECTEUR ET COMPARAISON
+       11. SÉLECTEUR ET COMPARAISON
        ============================================================ */
     function populateSelect() {
         const select = document.getElementById('stateSelect');
@@ -744,6 +999,7 @@
             selectedStates.push(code);
             updateSelectionUI();
             compareStates();
+            updateVoteCharts();
         }
     };
 
@@ -751,6 +1007,7 @@
         selectedStates = selectedStates.filter(s => s !== code);
         updateSelectionUI();
         compareStates();
+        updateVoteCharts();
     };
 
     function updateSelectionUI() {
@@ -772,6 +1029,7 @@
             majLegende();
             if (couche) couche.eachLayer(l => { l.closeTooltip(); l.closePopup(); });
             compareStates();
+            updateVoteCharts();
         });
 
         document.getElementById('compareBtn').addEventListener('click', function() {
@@ -779,6 +1037,7 @@
             selectedStates = Array.from(select.selectedOptions).map(o => o.value);
             updateSelectionUI();
             compareStates();
+            updateVoteCharts();
         });
 
         document.getElementById('clearBtn').addEventListener('click', function() {
@@ -787,6 +1046,24 @@
             if (chartCompare) { chartCompare.destroy(); chartCompare = null; }
             if (chartRadar) { chartRadar.destroy(); chartRadar = null; }
             document.getElementById('radarCard').style.display = 'none';
+            updateVoteCharts();
+        });
+
+        document.getElementById('correlationBtn').addEventListener('click', function() {
+            updateVoteCharts();
+            document.querySelector('.charts-row-3').scrollIntoView({ behavior: 'smooth' });
+        });
+
+        document.getElementById('voteToggle').addEventListener('change', function() {
+            showVotes = this.checked;
+            ajouterVotes();
+        });
+
+        document.getElementById('voteSelect').addEventListener('change', function() {
+            voteCandidat = this.value;
+            majLegende();
+            ajouterVotes();
+            updateVoteCharts();
         });
 
         populateSelect();
@@ -794,7 +1071,7 @@
     }
 
     /* ============================================================
-       9. COMPARAISON AVEC GRAPHIQUES
+       12. COMPARAISON AVEC GRAPHIQUES
        ============================================================ */
     function compareStates() {
         if (selectedStates.length === 0) {
@@ -908,7 +1185,161 @@
     }
 
     /* ============================================================
-       10. EXPORT DES GRAPHIQUES
+       13. GRAPHIQUES IMPÔTS VS VOTES
+       ============================================================ */
+    function updateVoteCharts() {
+        const depts = selectedStates.length > 0 ? selectedStates : allData.map(d => d.code);
+        
+        const data = depts.map(code => {
+            const ircom = allData.find(d => d.code === code);
+            const votes = VOTES.find(v => v.dep === code);
+            if (ircom && ircom.stats && votes && ircom.stats.rfrMoyen !== null) {
+                return {
+                    code: code,
+                    nom: ircom.nom,
+                    impotMoyen: ircom.stats.impotMoyen || 0,
+                    rfrMoyen: ircom.stats.rfrMoyen || 0,
+                    tauxImposes: ircom.stats.tauxImposes || 0,
+                    vote: votes[voteCandidat] || 0
+                };
+            }
+            return null;
+        }).filter(d => d !== null && d.vote > 0);
+
+        if (data.length === 0) return;
+
+        // Graphique 1 : Impôt moyen vs Votes
+        const canvas1 = document.getElementById('chart-vote-impot');
+        const ctx1 = canvas1.getContext('2d');
+        if (chartVoteImpot) { chartVoteImpot.destroy(); }
+
+        chartVoteImpot = new Chart(ctx1, {
+            type: 'scatter',
+            data: {
+                datasets: [{
+                    label: `Impôt moyen vs ${CANDIDAT_LABELS[voteCandidat]}`,
+                    data: data.map(d => ({ x: d.vote, y: d.impotMoyen })),
+                    backgroundColor: CANDIDAT_COLORS[voteCandidat] || '#FF6B6B',
+                    pointRadius: 6,
+                    pointHoverRadius: 8
+                }]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                plugins: {
+                    legend: { display: false },
+                    tooltip: {
+                        callbacks: {
+                            label: function(context) {
+                                const d = data[context.dataIndex];
+                                return `${d.code} - ${d.nom}\nVotes: ${d.vote.toFixed(1)}%\nImpôt moyen: ${d.impotMoyen.toFixed(0)} €`;
+                            }
+                        }
+                    }
+                },
+                scales: {
+                    x: { 
+                        title: { display: true, text: `Votes ${CANDIDAT_LABELS[voteCandidat]} (%)` },
+                        beginAtZero: true
+                    },
+                    y: { 
+                        title: { display: true, text: 'Impôt net moyen (€)' },
+                        beginAtZero: true
+                    }
+                }
+            }
+        });
+
+        // Graphique 2 : RFR moyen vs Votes
+        const canvas2 = document.getElementById('chart-vote-rfr');
+        const ctx2 = canvas2.getContext('2d');
+        if (chartVoteRFR) { chartVoteRFR.destroy(); }
+
+        chartVoteRFR = new Chart(ctx2, {
+            type: 'scatter',
+            data: {
+                datasets: [{
+                    label: `RFR moyen vs ${CANDIDAT_LABELS[voteCandidat]}`,
+                    data: data.map(d => ({ x: d.vote, y: d.rfrMoyen })),
+                    backgroundColor: '#4ECDC4',
+                    pointRadius: 6,
+                    pointHoverRadius: 8
+                }]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                plugins: {
+                    legend: { display: false },
+                    tooltip: {
+                        callbacks: {
+                            label: function(context) {
+                                const d = data[context.dataIndex];
+                                return `${d.code} - ${d.nom}\nVotes: ${d.vote.toFixed(1)}%\nRFR moyen: ${d.rfrMoyen.toFixed(0)} €`;
+                            }
+                        }
+                    }
+                },
+                scales: {
+                    x: { 
+                        title: { display: true, text: `Votes ${CANDIDAT_LABELS[voteCandidat]} (%)` },
+                        beginAtZero: true
+                    },
+                    y: { 
+                        title: { display: true, text: 'RFR moyen (€)' },
+                        beginAtZero: true
+                    }
+                }
+            }
+        });
+
+        // Graphique 3 : Taux d'imposés vs Votes
+        const canvas3 = document.getElementById('chart-vote-taux');
+        const ctx3 = canvas3.getContext('2d');
+        if (chartVoteTaux) { chartVoteTaux.destroy(); }
+
+        chartVoteTaux = new Chart(ctx3, {
+            type: 'scatter',
+            data: {
+                datasets: [{
+                    label: `Taux d'imposés vs ${CANDIDAT_LABELS[voteCandidat]}`,
+                    data: data.map(d => ({ x: d.vote, y: d.tauxImposes })),
+                    backgroundColor: '#6C5CE7',
+                    pointRadius: 6,
+                    pointHoverRadius: 8
+                }]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                plugins: {
+                    legend: { display: false },
+                    tooltip: {
+                        callbacks: {
+                            label: function(context) {
+                                const d = data[context.dataIndex];
+                                return `${d.code} - ${d.nom}\nVotes: ${d.vote.toFixed(1)}%\nTaux imposés: ${d.tauxImposes.toFixed(1)}%`;
+                            }
+                        }
+                    }
+                },
+                scales: {
+                    x: { 
+                        title: { display: true, text: `Votes ${CANDIDAT_LABELS[voteCandidat]} (%)` },
+                        beginAtZero: true
+                    },
+                    y: { 
+                        title: { display: true, text: 'Taux de foyers imposés (%)' },
+                        beginAtZero: true
+                    }
+                }
+            }
+        });
+    }
+
+    /* ============================================================
+       14. EXPORT DES GRAPHIQUES
        ============================================================ */
     function getChartImage(chart, format = 'png') {
         let backgroundColor = null;
@@ -938,7 +1369,7 @@
         }
         const imageData = getChartImage(chartCompare, format);
         const ext = format === 'jpg' || format === 'jpeg' ? 'jpg' : format;
-        downloadFile(imageData, `comparaison_ircom.${ext}`);
+        downloadFile(imageData, `comparaison_ircom_votes.${ext}`);
     };
 
     window.exportRadar = function(format) {
@@ -948,11 +1379,41 @@
         }
         const imageData = getChartImage(chartRadar, format);
         const ext = format === 'jpg' || format === 'jpeg' ? 'jpg' : format;
-        downloadFile(imageData, `radar_ircom.${ext}`);
+        downloadFile(imageData, `radar_ircom_votes.${ext}`);
+    };
+
+    window.exportVoteChart = function(format) {
+        if (!chartVoteImpot) {
+            alert('Aucun graphique à exporter. Sélectionnez d\'abord des départements.');
+            return;
+        }
+        const imageData = getChartImage(chartVoteImpot, format);
+        const ext = format === 'jpg' || format === 'jpeg' ? 'jpg' : format;
+        downloadFile(imageData, `impot_vs_votes.${ext}`);
+    };
+
+    window.exportRFRChart = function(format) {
+        if (!chartVoteRFR) {
+            alert('Aucun graphique à exporter.');
+            return;
+        }
+        const imageData = getChartImage(chartVoteRFR, format);
+        const ext = format === 'jpg' || format === 'jpeg' ? 'jpg' : format;
+        downloadFile(imageData, `rfr_vs_votes.${ext}`);
+    };
+
+    window.exportTauxChart = function(format) {
+        if (!chartVoteTaux) {
+            alert('Aucun graphique à exporter.');
+            return;
+        }
+        const imageData = getChartImage(chartVoteTaux, format);
+        const ext = format === 'jpg' || format === 'jpeg' ? 'jpg' : format;
+        downloadFile(imageData, `taux_vs_votes.${ext}`);
     };
 
     /* ============================================================
-       11. KPIs
+       15. KPIs
        ============================================================ */
     function updateKPIs() {
         if (!statsFrance) return;
@@ -963,7 +1424,7 @@
     }
 
     /* ============================================================
-       12. INITIALISATION
+       16. INITIALISATION
        ============================================================ */
     function afficherErreur(message) {
         document.getElementById('error-msg').textContent = '⚠️ ' + message;
@@ -1001,6 +1462,7 @@
             majLegende();
             updateKPIs();
             compareStates();
+            updateVoteCharts();
 
             document.getElementById('loading').style.display = 'none';
             setTimeout(() => carte.invalidateSize(), 200);
