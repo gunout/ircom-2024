@@ -1,0 +1,1014 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>IRCOM 2024 – Revenus fiscaux par département</title>
+
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body { font-family: 'Segoe UI', system-ui, sans-serif; background: #f0f4f8; color: #1a2a3a; padding: 16px; min-height: 100vh; }
+        
+        .header {
+            display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 12px;
+            background: #fff; padding: 14px 24px; border-radius: 16px; box-shadow: 0 2px 12px rgba(0,0,0,0.06);
+            margin-bottom: 16px;
+        }
+        .header-left { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; }
+        .header-left h1 { font-size: 1.4rem; font-weight: 600; color: #1a3b5d; }
+        .header-left h1 small { font-size: 0.75rem; font-weight: 400; color: #6b7a8a; }
+        
+        .kpi-group { display: flex; gap: 20px; flex-wrap: wrap; }
+        .kpi-item { display: flex; flex-direction: column; }
+        .kpi-item .label { font-size: 0.55rem; text-transform: uppercase; color: #6b7a8a; letter-spacing: 0.3px; }
+        .kpi-item .value { font-size: 1rem; font-weight: 700; color: #1a3b5d; }
+        .kpi-item .value.highlight { color: #2a6f97; }
+
+        .main-row {
+            display: flex;
+            gap: 16px;
+            margin-bottom: 16px;
+            min-height: 500px;
+        }
+        .map-wrapper {
+            flex: 2;
+            background: #e9edf2;
+            border-radius: 16px;
+            overflow: hidden;
+            box-shadow: 0 4px 16px rgba(0,0,0,0.08);
+            position: relative;
+        }
+        #map {
+            width: 100%;
+            height: 100%;
+            min-height: 480px;
+        }
+        
+        .control-panel {
+            flex: 1; min-width: 220px; max-width: 350px; background: #fff; border-radius: 16px;
+            padding: 18px 16px; box-shadow: 0 4px 16px rgba(0,0,0,0.08);
+            display: flex; flex-direction: column; gap: 12px;
+            max-height: 520px;
+            overflow-y: auto;
+        }
+        .control-panel label { font-weight: 600; font-size: 0.65rem; text-transform: uppercase; color: #6b7a8a; letter-spacing: 0.4px; margin-bottom: 2px; }
+        .control-panel select[multiple] { width: 100%; height: 100px; padding: 6px 8px; border-radius: 8px; border: 1px solid #d0d7de; background: #fafbfc; font-size: 0.8rem; }
+        .control-panel select[multiple] option { padding: 4px 6px; }
+        .control-panel select[multiple] option:checked { background: #2a6f97; color: #fff; }
+        .control-panel select { width: 100%; padding: 6px 8px; border-radius: 8px; border: 1px solid #d0d7de; font-size: 0.8rem; background: #fafbfc; }
+        
+        .btn-group { display: flex; gap: 6px; flex-wrap: wrap; }
+        .btn-group button { border: none; padding: 5px 12px; border-radius: 20px; font-size: 0.7rem; font-weight: 500; cursor: pointer; transition: all 0.2s; flex: 1; min-width: 60px; }
+        .btn-group button.primary { background: #2a6f97; color: #fff; }
+        .btn-group button.primary:hover { background: #1d4f6e; }
+        .btn-group button.secondary { background: #6c757d; color: #fff; }
+        .btn-group button.secondary:hover { background: #495057; }
+        
+        .selected-badges { display: flex; flex-wrap: wrap; gap: 4px; margin-top: 4px; }
+        .selected-badges .badge { background: #e9edf2; padding: 2px 10px; border-radius: 20px; font-size: 0.7rem; font-weight: 600; color: #1a3b5d; display: flex; align-items: center; gap: 6px; }
+        .selected-badges .badge .remove { cursor: pointer; color: #dc3545; font-weight: 700; }
+        
+        .legend-compact { display: flex; align-items: center; gap: 10px; font-size: 0.75rem; margin-top: 2px; }
+        .legend-compact .dot { width: 14px; height: 14px; border-radius: 50%; border: 2px solid #fff; box-shadow: 0 0 0 1px #ccc; }
+        
+        .charts-row { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; margin-bottom: 16px; }
+        .chart-card { 
+            background: #fff; border-radius: 16px; padding: 14px 16px; 
+            box-shadow: 0 4px 16px rgba(0,0,0,0.08); border-left: 4px solid #2a6f97; 
+            position: relative;
+        }
+        .chart-card.radar-card { border-left-color: #dc3545; }
+        .chart-card h4 { 
+            font-size: 0.8rem; color: #1a3b5d; margin-bottom: 6px; 
+            display: flex; justify-content: space-between; align-items: center;
+        }
+        .chart-card .chart-actions { display: flex; gap: 4px; flex-wrap: wrap; }
+        .chart-card .chart-actions button { 
+            border: none; padding: 2px 8px; border-radius: 10px; font-size: 0.55rem; 
+            font-weight: 500; cursor: pointer; transition: all 0.2s; 
+        }
+        .chart-card .chart-actions button:hover { transform: scale(1.05); }
+        .chart-card canvas { width: 100% !important; max-height: 180px; height: auto !important; }
+
+        .compare-section { border-top: 1px solid #e9edf2; padding-top: 12px; margin-top: 4px; }
+        
+        .leaflet-popup-content { font-size: 0.78rem; min-width: 200px; max-width: 380px; }
+
+        #loading { position: fixed; top: 0; left: 0; width: 100%; height: 100%; z-index: 3000; background: rgba(255,255,255,0.85); backdrop-filter: blur(4px); display: flex; flex-direction: column; align-items: center; justify-content: center; }
+        #loading .spinner { width: 36px; height: 36px; border: 4px solid #e9edf2; border-top: 4px solid #2a6f97; border-radius: 50%; animation: spin 0.8s linear infinite; margin-bottom: 12px; }
+        @keyframes spin { to { transform: rotate(360deg); } }
+        #error-msg { position: fixed; top: 20px; left: 50%; transform: translateX(-50%); z-index: 1500; background: #dc3545; color: #fff; padding: 10px 28px; border-radius: 40px; display: none; font-size: 0.9rem; }
+
+        @media (max-width: 800px) { .main-row { flex-direction: column; } .control-panel { max-width: 100%; } .charts-row { grid-template-columns: 1fr; } }
+    </style>
+</head>
+<body>
+
+    <div id="loading"><div class="spinner"></div><span>Chargement des données…</span></div>
+    <div id="error-msg"></div>
+
+    <!-- ====== EN‑TÊTE ====== -->
+    <header class="header">
+        <div class="header-left">
+            <h1>📊 IRCOM 2024 <small>– Revenus fiscaux par département</small></h1>
+        </div>
+        <div class="kpi-group" id="kpiGroup">
+            <div class="kpi-item"><span class="label">RFR moyen</span><span class="value highlight" id="kpi-rfr-moyen">—</span></div>
+            <div class="kpi-item"><span class="label">Foyers imposés</span><span class="value highlight" id="kpi-taux-imposes">—</span></div>
+            <div class="kpi-item"><span class="label">Impôt moyen</span><span class="value highlight" id="kpi-impot-moyen">—</span></div>
+            <div class="kpi-item"><span class="label">Départements</span><span class="value" id="kpi-count">—</span></div>
+        </div>
+    </header>
+
+    <!-- ====== LIGNE PRINCIPALE ====== -->
+    <section class="main-row">
+        <div class="map-wrapper"><div id="map"></div></div>
+        <aside class="control-panel">
+            <div>
+                <label for="indicatorSelect">📊 Indicateur à afficher</label>
+                <select id="indicatorSelect">
+                    <option value="rfrMoyen">RFR moyen par foyer</option>
+                    <option value="tauxImposes">Part des foyers imposés</option>
+                    <option value="rfrMoyenImposes">RFR moyen (foyers imposés)</option>
+                    <option value="impotMoyen">Impôt net moyen par foyer</option>
+                    <option value="impotTotal">Impôt net total</option>
+                    <option value="nbFoyers">Nombre de foyers fiscaux</option>
+                    <option value="nbCommunes">Nombre de communes</option>
+                </select>
+            </div>
+            
+            <div class="compare-section">
+                <label for="stateSelect">🗺️ Sélectionnez des départements à comparer</label>
+                <select id="stateSelect" multiple></select>
+                <div class="selected-badges" id="selectedBadges"></div>
+                <div class="btn-group" style="margin-top:8px;">
+                    <button class="primary" id="compareBtn">🔍 Comparer</button>
+                    <button class="secondary" id="clearBtn">Effacer</button>
+                </div>
+            </div>
+            
+            <div class="legend-compact"><span class="dot" style="background:#2a6f97;"></span><span id="legendText">RFR moyen par foyer</span></div>
+            <div style="font-size:0.65rem; color:#6b7a8a;"><span id="dataCount">0</span> départements chargés</div>
+        </aside>
+    </section>
+
+    <!-- ====== GRAPHIQUES ====== -->
+    <section class="charts-row">
+        <div class="chart-card" id="chartCard">
+            <h4>
+                <span id="chartCompareTitle">📊 Comparaison des indicateurs</span>
+                <div class="chart-actions">
+                    <button onclick="exportChart('png')" style="background:#2a6f97;color:#fff;">PNG</button>
+                    <button onclick="exportChart('jpg')" style="background:#fd7e14;color:#fff;">JPG</button>
+                    <button onclick="exportChart('svg')" style="background:#6f42c1;color:#fff;">SVG</button>
+                </div>
+            </h4>
+            <canvas id="chart-compare"></canvas>
+        </div>
+        <div class="chart-card radar-card" id="radarCard">
+            <h4>
+                <span id="radarTitle">📊 Radar comparatif</span>
+                <div class="chart-actions">
+                    <button onclick="exportRadar('png')" style="background:#2a6f97;color:#fff;">PNG</button>
+                    <button onclick="exportRadar('jpg')" style="background:#fd7e14;color:#fff;">JPG</button>
+                    <button onclick="exportRadar('svg')" style="background:#6f42c1;color:#fff;">SVG</button>
+                </div>
+            </h4>
+            <canvas id="chart-radar"></canvas>
+        </div>
+    </section>
+
+    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+    <script>
+    'use strict';
+
+    /* ============================================================
+       1. CONFIGURATION
+       ============================================================ */
+    const CONFIG = {
+        geojson: 'departements-5m.geojson',
+        donnees: 'ircom_communes_complet_revenus_2024.json',
+        classes: 6,
+        palette: ['#ffffd9', '#c7e9b4', '#7fcdbb', '#41b6c4', '#1d91c0', '#225ea8']
+    };
+
+    /* ---------- état global ---------- */
+    let carte = null, couche = null, geojson = null;
+    let parDep = new Map();
+    let statsFrance = null;
+    let indicateurCourant = 'rfrMoyen';
+    let bornes = [];
+    let cleCodeGeo = null;
+    let allData = [];
+    let selectedStates = [];
+    let chartCompare = null;
+    let chartRadar = null;
+
+    const REGEX_CODE_DEP = /^(0[1-9]|[1-9]\d|2[AB]|9[7-8]\d)$/;
+
+    /* ============================================================
+       2. UTILITAIRES
+       ============================================================ */
+    function normaliserDep(v) {
+        if (v == null) return null;
+        const s = String(v).trim();
+        if (!s) return null;
+        const corse = s.toUpperCase().match(/^2[AB]/);
+        if (corse) return corse[0];
+        if (!/^\d+$/.test(s)) return s;
+        if (s.length === 1) return s.padStart(2, '0');
+        if (s.length === 2) return s;
+        if (s.length === 3) {
+            const n = parseInt(s, 10);
+            return (n >= 971 && n <= 989) ? s : s.slice(0, 2);
+        }
+        return s;
+    }
+
+    function enNombre(v) {
+        if (typeof v === 'number') return Number.isFinite(v) ? v : null;
+        if (v == null) return null;
+        let s = String(v).trim();
+        if (!s || /^n\.?c\.?$/i.test(s)) return null;
+        s = s.replace(/[\s\u00a0\u202f']/g, '');
+        if (s.includes(',')) {
+            if (s.match(/,\d{3}/)) {
+                s = s.replace(/,/g, '');
+            } else {
+                s = s.replace(',', '.');
+            }
+        }
+        const n = parseFloat(s);
+        return Number.isFinite(n) ? n : null;
+    }
+
+    function escapeHTML(s) {
+        return String(s ?? '').replace(/[&<>"']/g, c =>
+            ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+    }
+
+    const fmtEntier  = v => (v == null ? 'n.d.' : Math.round(v).toLocaleString('fr-FR'));
+    const fmtEuro    = v => (v == null ? 'n.d.' : Math.round(v).toLocaleString('fr-FR') + ' €');
+    const fmtPourcent= v => (v == null ? 'n.d.' : v.toLocaleString('fr-FR', { minimumFractionDigits: 1, maximumFractionDigits: 1 }) + ' %');
+    const fmtME      = v => (v == null ? 'n.d.' : (v / 1000).toLocaleString('fr-FR', { maximumFractionDigits: 0 }) + ' M€');
+    const fmtMdE     = v => (v == null ? 'n.d.' : (v / 1e6).toLocaleString('fr-FR', { maximumFractionDigits: 2 }) + ' Md€');
+
+    const INDICATEURS = {
+        rfrMoyen:        { libelle: 'RFR moyen par foyer', unite: '€',
+                           valeur: d => d.rfrMoyen, fmt: fmtEuro,
+                           court: v => (v == null ? 'n.d.' : Math.round(v).toLocaleString('fr-FR') + ' €') },
+        tauxImposes:     { libelle: 'Part des foyers imposés', unite: '%',
+                           valeur: d => d.tauxImposes, fmt: fmtPourcent,
+                           court: v => (v == null ? 'n.d.' : v.toFixed(1).replace('.', ',') + ' %') },
+        rfrMoyenImposes: { libelle: 'RFR moyen (foyers imposés)', unite: '€',
+                           valeur: d => d.rfrMoyenImposes, fmt: fmtEuro,
+                           court: v => (v == null ? 'n.d.' : Math.round(v).toLocaleString('fr-FR') + ' €') },
+        impotMoyen:      { libelle: 'Impôt net moyen par foyer', unite: '€',
+                           valeur: d => d.impotMoyen, fmt: fmtEuro,
+                           court: v => (v == null ? 'n.d.' : Math.round(v).toLocaleString('fr-FR') + ' €') },
+        impotTotal:      { libelle: 'Impôt net total', unite: 'Md€',
+                           valeur: d => (d.impotNet != null ? d.impotNet / 1e6 : null),
+                           fmt: v => (v == null ? 'n.d.' : v.toLocaleString('fr-FR', { maximumFractionDigits: 2 }) + ' Md€'),
+                           court: v => (v == null ? 'n.d.' : v.toLocaleString('fr-FR', { maximumFractionDigits: 1 }) + ' Md€') },
+        nbFoyers:        { libelle: 'Nombre de foyers fiscaux', unite: '',
+                           valeur: d => d.nbFoyers, fmt: fmtEntier,
+                           court: v => (v == null ? 'n.d.' : Math.round(v).toLocaleString('fr-FR')) },
+        nbCommunes:      { libelle: 'Nombre de communes', unite: '',
+                           valeur: d => d.nbCommunes, fmt: fmtEntier,
+                           court: v => (v == null ? 'n.d.' : Math.round(v).toLocaleString('fr-FR')) }
+    };
+
+    /* ============================================================
+       3. CHARGEMENT DES FICHIERS
+       ============================================================ */
+    function texteEtat(msg) { document.getElementById('loading').querySelector('span').textContent = msg; }
+
+    async function chargerTexte(url) {
+        const rep = await fetch(url);
+        if (!rep.ok) {
+            throw new Error("Impossible de charger « " + url + " » (HTTP " + rep.status + ").");
+        }
+        return await rep.text();
+    }
+
+    /* ============================================================
+       4. EXTRAITON DU JSON IRCOM - CORRIGÉ
+       ============================================================ */
+    function extraireEtAgreger(brut) {
+        if (!Array.isArray(brut)) throw new Error("Le fichier IRCOM n'est pas un tableau JSON.");
+        if (brut.length === 0) throw new Error("Le fichier IRCOM est vide.");
+
+        console.log('=== DÉBOGAGE IRCOM ===');
+        console.log('Nombre total de lignes:', brut.length);
+        console.log('Première ligne:', brut[0]);
+        console.log('Clés de la première ligne:', Object.keys(brut[0] || {}));
+
+        // Trouver la ligne d'en-tête
+        let headerRow = null;
+        let dataStart = 0;
+        
+        for (let i = 0; i < Math.min(15, brut.length); i++) {
+            const row = brut[i];
+            if (!row || typeof row !== 'object') continue;
+            const values = Object.values(row);
+            const hasDep = values.some(v => typeof v === 'string' && (v.includes('Dép') || v.includes('Département') || v.includes('DEP')));
+            const hasCommune = values.some(v => typeof v === 'string' && (v.includes('Commune') || v.includes('commune') || v.includes('COM')));
+            const hasTranche = values.some(v => typeof v === 'string' && (v.includes('tranche') || v.includes('Tranche') || v.includes('revenu fiscal')));
+            if (hasDep && hasCommune) {
+                headerRow = row;
+                dataStart = i + 1;
+                console.log('Ligne d\'en-tête trouvée à l\'index', i, ':', headerRow);
+                break;
+            }
+        }
+
+        if (!headerRow) {
+            // Essayer avec la ligne 2 (index 2) qui contient souvent les vrais noms
+            for (let i = 2; i < Math.min(8, brut.length); i++) {
+                const row = brut[i];
+                if (!row || typeof row !== 'object') continue;
+                const values = Object.values(row);
+                // Vérifier si c'est une ligne de données (contient des nombres)
+                const hasNumbers = values.some(v => typeof v === 'number' || (!isNaN(parseFloat(v)) && v !== ''));
+                if (hasNumbers && values.length > 5) {
+                    // Utiliser la ligne précédente comme en-tête
+                    headerRow = brut[i-1];
+                    dataStart = i;
+                    console.log('En-tête déduite de la ligne', i-1, ':', headerRow);
+                    break;
+                }
+            }
+        }
+
+        if (!headerRow) {
+            headerRow = brut[2] || brut[0];
+            dataStart = 3;
+            console.log('En-tête par défaut:', headerRow);
+        }
+
+        const headerValues = Object.values(headerRow);
+        const headerKeys = Object.keys(headerRow);
+        console.log('Clés de l\'en-tête:', headerKeys);
+        console.log('Valeurs de l\'en-tête:', headerValues);
+        
+        function findColumn(patterns) {
+            for (let i = 0; i < headerValues.length; i++) {
+                const val = String(headerValues[i] || '').toLowerCase().normalize('NFD')
+                    .replace(/[\u0300-\u036f]/g, '');
+                for (const pattern of patterns) {
+                    if (val.includes(pattern)) {
+                        console.log(`Colonne trouvée pour "${pattern}": index ${i}, clé "${headerKeys[i]}"`);
+                        return headerKeys[i];
+                    }
+                }
+            }
+            return null;
+        }
+
+        const col = {
+            dep: findColumn(['departement', 'dép', 'dep', 'dept']),
+            com: findColumn(['commune', 'com']),
+            libelle: findColumn(['libell', 'nom']),
+            tranche: findColumn(['tranche', 'revenu', 'rfr']),
+            nbFoyers: findColumn(['nombre de foyers', 'foyers fiscaux', 'nb foyers', 'foyers']),
+            rfr: findColumn(['revenu fiscal de reference', 'revenu fiscal de référence', 'rfr total', 'rfr']),
+            impot: findColumn(['impot net', 'impôt net', 'impot']),
+            nbImposes: findColumn(['nombre de foyers imposes', 'nombre de foyers imposés', 'foyers imposes', 'imposes']),
+            rfrImposes: findColumn(['revenu fiscal de reference des foyers', 'rfr imposes', 'rfr imposés'])
+        };
+
+        // Fallback par position
+        const fallbackKeys = ['dep', 'com', 'libelle', 'tranche', 'nbFoyers', 'rfr', 'impot', 'nbImposes', 'rfrImposes'];
+        for (let i = 0; i < Math.min(fallbackKeys.length, headerKeys.length); i++) {
+            if (!col[fallbackKeys[i]]) {
+                col[fallbackKeys[i]] = headerKeys[i];
+                console.log(`Fallback: ${fallbackKeys[i]} -> ${headerKeys[i]}`);
+            }
+        }
+
+        console.log('Colonnes finales:', col);
+
+        if (!col.dep) throw new Error("Colonne département introuvable.");
+
+        const lignes = [];
+        let ignorees = 0;
+        let nbTotal = 0;
+
+        for (let i = dataStart; i < brut.length; i++) {
+            const o = brut[i];
+            if (!o || typeof o !== 'object') continue;
+            nbTotal++;
+            
+            const depBrut = o[col.dep];
+            if (depBrut == null) continue;
+            
+            const dep = normaliserDep(depBrut);
+            if (!dep || !REGEX_CODE_DEP.test(dep)) { 
+                ignorees++; 
+                continue; 
+            }
+            
+            // Récupérer les valeurs - NE PAS filtrer par "Total" pour voir toutes les données
+            const nbFoyers = enNombre(o[col.nbFoyers]);
+            const rfr = enNombre(o[col.rfr]);
+            const impot = col.impot ? enNombre(o[col.impot]) : null;
+            const nbImposes = col.nbImposes ? enNombre(o[col.nbImposes]) : null;
+            const rfrImposes = col.rfrImposes ? enNombre(o[col.rfrImposes]) : null;
+            
+            // Récupérer la tranche
+            const tranche = o[col.tranche] != null ? String(o[col.tranche]).trim() : '';
+            
+            // Garder toutes les lignes qui ont des données
+            if (nbFoyers > 0 || rfr > 0) {
+                const codeCom = o[col.com] != null ? String(o[col.com]).trim() : '';
+                lignes.push({
+                    dep: dep,
+                    codeInsee: dep + codeCom.padStart(3, '0'),
+                    nom: o[col.libelle] != null ? String(o[col.libelle]).trim() : '',
+                    tranche: tranche,
+                    nbFoyers: nbFoyers,
+                    rfr: rfr,
+                    impotNet: impot,
+                    nbImposes: nbImposes,
+                    rfrImposes: rfrImposes
+                });
+            }
+        }
+
+        console.log('IRCOM — lignes de données lues :', lignes.length);
+        console.log('IRCOM — lignes ignorées :', ignorees);
+        console.log('Total traité :', nbTotal);
+
+        if (lignes.length === 0) {
+            console.log('Échantillon des 10 premières lignes à partir de dataStart:');
+            for (let i = dataStart; i < Math.min(dataStart + 10, brut.length); i++) {
+                console.log(`Ligne ${i}:`, brut[i]);
+            }
+            throw new Error("Aucune ligne de données trouvée dans le fichier IRCOM.");
+        }
+
+        // Afficher un échantillon des données extraites
+        console.log('Échantillon des données extraites (5 premières):');
+        for (let i = 0; i < Math.min(5, lignes.length); i++) {
+            console.log(lignes[i]);
+        }
+
+        // === Agrégation par département ===
+        const parDep = new Map();
+
+        for (const l of lignes) {
+            let d = parDep.get(l.dep);
+            if (!d) {
+                d = { dep: l.dep, nbCommunes: 0, nbFoyers: 0, rfr: 0, impotNet: 0, nbImposes: 0,
+                      rfrImposes: 0, communesNC: 0, lignes: 0 };
+                parDep.set(l.dep, d);
+            }
+            d.lignes++;
+            // Compter les communes uniques
+            // On compte chaque ligne comme une commune pour simplifier
+            d.nbCommunes++;
+            if (l.nbFoyers != null)   d.nbFoyers += l.nbFoyers;
+            if (l.rfr != null)        d.rfr += l.rfr;
+            if (l.impotNet != null)   d.impotNet += l.impotNet;
+            if (l.nbImposes != null)  d.nbImposes += l.nbImposes;
+            if (l.rfrImposes != null) d.rfrImposes += l.rfrImposes;
+        }
+
+        console.log('Départements trouvés:', parDep.size);
+
+        // Afficher un exemple pour Paris
+        if (parDep.has('75')) {
+            console.log('Données brutes pour Paris (75):', parDep.get('75'));
+        }
+
+        if (parDep.size === 0) {
+            throw new Error("Aucun département n'a pu être extrait des données.");
+        }
+
+        // === Indicateurs dérivés ===
+        for (const d of parDep.values()) {
+            // RFR en milliers d'euros -> conversion en euros
+            d.rfrMoyen        = d.nbFoyers ? (d.rfr * 1000) / d.nbFoyers : null;
+            d.tauxImposes     = (d.nbImposes && d.nbFoyers) ? (100 * d.nbImposes) / d.nbFoyers : null;
+            d.rfrMoyenImposes = d.nbImposes ? (d.rfrImposes * 1000) / d.nbImposes : null;
+            d.impotMoyen      = (d.nbFoyers && d.impotNet != null) ? (d.impotNet * 1000) / d.nbFoyers : null;
+            
+            // Log pour Paris
+            if (d.dep === '75') {
+                console.log('Calculs pour Paris (75):');
+                console.log('  nbFoyers:', d.nbFoyers);
+                console.log('  rfr (milliers):', d.rfr);
+                console.log('  rfrMoyen (euros):', d.rfrMoyen);
+                console.log('  nbImposes:', d.nbImposes);
+                console.log('  tauxImposes:', d.tauxImposes);
+            }
+        }
+
+        // === Totaux nationaux ===
+        const france = { dep: parDep.size, communes: 0, foyers: 0, rfr: 0, impot: 0, imposes: 0 };
+        for (const d of parDep.values()) {
+            france.communes += d.nbCommunes;
+            france.foyers += d.nbFoyers;
+            france.rfr += d.rfr;
+            france.impot += d.impotNet || 0;
+            france.imposes += d.nbImposes || 0;
+        }
+        france.rfrMoyen = france.foyers ? (france.rfr * 1000) / france.foyers : null;
+        france.tauxImposes = (france.foyers && france.imposes) ? (100 * france.imposes) / france.foyers : null;
+
+        return { parDep: parDep, france: france, nbLignes: lignes.length, nbCommunes: lignes.length };
+    }
+
+    /* ============================================================
+       5. JOINTURE GEOJSON ↔ DONNÉES
+       ============================================================ */
+    function lireCodeDept(props) {
+        if (cleCodeGeo != null && props[cleCodeGeo] != null) {
+            const c = normaliserDep(props[cleCodeGeo]);
+            if (c && REGEX_CODE_DEP.test(c)) return c;
+        }
+        const cles = Object.keys(props);
+        const norm = s => String(s).toLowerCase().normalize('NFD')
+            .replace(/[\u0300-\u036f]/g, '').replace(/[^a-z0-9]/g, '');
+        
+        for (const cand of ['code', 'codedep', 'codedepartement', 'inseedep', 'insee',
+                            'dep', 'departement', 'numdep', 'numerodepartement']) {
+            const k = cles.find(x => norm(x) === cand);
+            if (k == null || props[k] == null) continue;
+            const c = normaliserDep(props[k]);
+            if (c && REGEX_CODE_DEP.test(c)) { cleCodeGeo = k; return c; }
+        }
+        
+        for (const k of cles) {
+            const nk = norm(k);
+            if (!/(dep|insee)/.test(nk) ||
+                /(nom|name|libell|region|commune|epci|arrond|canton|pop|surf|area|wikipedia|wikidata|osm)/.test(nk)) continue;
+            if (props[k] == null) continue;
+            const c = normaliserDep(props[k]);
+            if (c && REGEX_CODE_DEP.test(c)) { cleCodeGeo = k; return c; }
+        }
+        
+        for (const k of cles) {
+            if (typeof props[k] !== 'string') continue;
+            const c = normaliserDep(props[k]);
+            if (c && REGEX_CODE_DEP.test(c)) return c;
+        }
+        return null;
+    }
+
+    function lireNomDept(props) {
+        const cles = Object.keys(props);
+        const norm = s => String(s).toLowerCase().normalize('NFD')
+            .replace(/[\u0300-\u036f]/g, '').replace(/[^a-z0-9]/g, '');
+        for (const cand of ['nom', 'nomdep', 'nomdepartement', 'nomdept', 'nomm',
+                            'name', 'libelle', 'libelledepartement', 'nomdecommune']) {
+            const k = cles.find(x => norm(x) === cand);
+            if (k != null && typeof props[k] === 'string' && props[k].trim()) return props[k].trim();
+        }
+        for (const k of cles) {
+            const nk = norm(k);
+            if (!/(nom|name|libell)/.test(nk) ||
+                /(code|insee|num|id|region|surf|area|pop|wikipedia)/.test(nk)) continue;
+            if (typeof props[k] === 'string' && props[k].trim()) return props[k].trim();
+        }
+        return null;
+    }
+
+    function joindre() {
+        let apparies = 0;
+        allData = [];
+        for (const f of geojson.features) {
+            const p = f.properties ?? (f.properties = {});
+            p._code = lireCodeDept(p);
+            p._nom = lireNomDept(p) || (p._code ? 'Département ' + p._code : 'Sans nom');
+            p.stats = p._code ? (parDep.get(p._code) ?? null) : null;
+            if (p.stats) {
+                apparies++;
+                allData.push({
+                    code: p._code,
+                    nom: p._nom,
+                    stats: p.stats
+                });
+            }
+        }
+        console.log('Jointure : ' + apparies + ' / ' + geojson.features.length + ' features ont des données IRCOM.');
+        if (apparies === 0) {
+            throw new Error("Aucune correspondance entre le GeoJSON et les données IRCOM.");
+        }
+    }
+
+    /* ============================================================
+       6. CARTE
+       ============================================================ */
+    function construireCarte() {
+        carte = L.map('map', { preferCanvas: true, center: [46.6, 2.4], zoom: 6 });
+        
+        L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+            maxZoom: 19,
+            attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>'
+        }).addTo(carte);
+
+        couche = L.geoJSON(geojson, { 
+            style: styleFeature, 
+            onEachFeature: configurerInteractions 
+        }).addTo(carte);
+    }
+
+    function classeDe(v) {
+        let i = 0;
+        while (i < bornes.length && v >= bornes[i]) i++;
+        return i;
+    }
+
+    function couleurClasse(i) {
+        const nb = bornes.length + 1;
+        const P = CONFIG.palette.length;
+        if (nb <= 1) return CONFIG.palette[Math.floor((P - 1) / 2)];
+        return CONFIG.palette[Math.round((i * (P - 1)) / (nb - 1))];
+    }
+
+    function styleFeature(feature) {
+        const p = feature.properties || {};
+        const ind = INDICATEURS[indicateurCourant];
+        const v = p.stats ? ind.valeur(p.stats) : null;
+        if (v == null || !bornes.length) {
+            return { fillColor: '#d8dee3', color: '#aeb6bd', weight: 0.7, fillOpacity: 0.55 };
+        }
+        return { fillColor: couleurClasse(classeDe(v)), color: '#ffffff', weight: 0.9, fillOpacity: 0.85 };
+    }
+
+    function configurerInteractions(feature, layer) {
+        layer.on({
+            mouseover: ev => {
+                const cible = ev.target;
+                cible.setStyle({ weight: 2.2, color: '#17212b', fillOpacity: 0.92 });
+            },
+            mouseout: ev => {
+                couche.resetStyle(ev.target);
+            }
+        });
+        
+        const p = feature.properties;
+        const d = p.stats;
+        let popupContent = `<div style="min-width:260px; max-width:380px; font-family: 'Segoe UI', sans-serif;">
+            <div style="font-weight:700; font-size:1rem; color:#1a3b5d; border-bottom:2px solid #2a6f97; padding-bottom:6px; margin-bottom:8px;">
+                ${escapeHTML(p._nom)} (${p._code || '—'})
+            </div>`;
+        
+        if (d) {
+            popupContent += `
+                <div style="display:grid; grid-template-columns:1fr 1fr; gap:2px 8px; font-size:0.75rem;">
+                    <div style="color:#6b7a8a;">📊 RFR moyen</div>
+                    <div style="font-weight:600; text-align:right;">${fmtEuro(d.rfrMoyen)}</div>
+                    
+                    <div style="color:#6b7a8a;">📈 Foyers imposés</div>
+                    <div style="font-weight:600; text-align:right;">${fmtPourcent(d.tauxImposes)}</div>
+                    
+                    <div style="color:#6b7a8a;">💰 Impôt moyen</div>
+                    <div style="font-weight:600; text-align:right;">${fmtEuro(d.impotMoyen)}</div>
+                    
+                    <div style="color:#6b7a8a;">👨‍👩‍👧‍👦 Foyers</div>
+                    <div style="font-weight:600; text-align:right;">${fmtEntier(d.nbFoyers)}</div>
+                    
+                    <div style="color:#6b7a8a;">🏛️ Communes</div>
+                    <div style="font-weight:600; text-align:right;">${fmtEntier(d.nbCommunes)}</div>
+                </div>
+                <div style="margin-top:8px; padding-top:6px; border-top:1px solid #e9edf2; text-align:center; font-size:0.75rem; color:#2a6f97; cursor:pointer;" onclick="addState('${p._code}')">
+                    ➕ Ajouter à la comparaison
+                </div>
+            `;
+        } else {
+            popupContent += `<div style="color:#dc3545;">⚠️ Données non disponibles</div>`;
+        }
+        popupContent += `</div>`;
+        layer.bindPopup(popupContent);
+    }
+
+    /* ============================================================
+       7. CLASSIFICATION ET LÉGENDE
+       ============================================================ */
+    function majEchelle() {
+        const ind = INDICATEURS[indicateurCourant];
+        const valeurs = [];
+        for (const f of geojson.features) {
+            const d = f.properties && f.properties.stats;
+            if (!d) continue;
+            const v = ind.valeur(d);
+            if (v != null && isFinite(v) && v > 0) valeurs.push(v);
+        }
+        console.log(`Valeurs pour ${indicateurCourant}:`, valeurs.slice(0, 10));
+        const v = valeurs.slice().sort((a, b) => a - b);
+        if (!v.length) { bornes = []; }
+        else {
+            const nb = Math.min(CONFIG.classes, CONFIG.palette.length);
+            const b = [];
+            for (let i = 1; i < nb; i++) b.push(v[Math.min(Math.floor((i * v.length) / nb), v.length - 1)]);
+            bornes = [...new Set(b)];
+        }
+        if (couche) couche.eachLayer(l => l.setStyle(styleFeature(l.feature)));
+    }
+
+    function majLegende() {
+        const cont = document.getElementById('legendText');
+        cont.textContent = INDICATEURS[indicateurCourant].libelle;
+        
+        const dot = document.querySelector('.legend-compact .dot');
+        if (bornes.length > 0) {
+            const mid = Math.floor(bornes.length / 2);
+            dot.style.background = couleurClasse(mid);
+        } else {
+            dot.style.background = '#d8dee3';
+        }
+    }
+
+    /* ============================================================
+       8. SÉLECTEUR ET COMPARAISON
+       ============================================================ */
+    function populateSelect() {
+        const select = document.getElementById('stateSelect');
+        select.innerHTML = '';
+        allData.sort((a, b) => a.code.localeCompare(b.code));
+        allData.forEach(item => {
+            const opt = document.createElement('option');
+            opt.value = item.code;
+            opt.textContent = `${item.code} - ${item.nom}`;
+            select.appendChild(opt);
+        });
+        document.getElementById('dataCount').textContent = allData.length;
+    }
+
+    window.addState = function(code) {
+        if (!selectedStates.includes(code)) {
+            selectedStates.push(code);
+            updateSelectionUI();
+            compareStates();
+        }
+    };
+
+    window.removeState = function(code) {
+        selectedStates = selectedStates.filter(s => s !== code);
+        updateSelectionUI();
+        compareStates();
+    };
+
+    function updateSelectionUI() {
+        const select = document.getElementById('stateSelect');
+        Array.from(select.options).forEach(opt => {
+            opt.selected = selectedStates.includes(opt.value);
+        });
+        const container = document.getElementById('selectedBadges');
+        container.innerHTML = selectedStates.map(code => 
+            `<span class="badge">${code} <span class="remove" onclick="removeState('${code}')">✕</span></span>`
+        ).join('');
+    }
+
+    function setupControls() {
+        const select = document.getElementById('indicatorSelect');
+        select.addEventListener('change', function() {
+            indicateurCourant = this.value;
+            majEchelle();
+            majLegende();
+            if (couche) couche.eachLayer(l => { l.closeTooltip(); l.closePopup(); });
+            compareStates();
+        });
+
+        document.getElementById('compareBtn').addEventListener('click', function() {
+            const select = document.getElementById('stateSelect');
+            selectedStates = Array.from(select.selectedOptions).map(o => o.value);
+            updateSelectionUI();
+            compareStates();
+        });
+
+        document.getElementById('clearBtn').addEventListener('click', function() {
+            selectedStates = [];
+            updateSelectionUI();
+            if (chartCompare) { chartCompare.destroy(); chartCompare = null; }
+            if (chartRadar) { chartRadar.destroy(); chartRadar = null; }
+            document.getElementById('radarCard').style.display = 'none';
+        });
+
+        populateSelect();
+        updateSelectionUI();
+    }
+
+    /* ============================================================
+       9. COMPARAISON AVEC GRAPHIQUES
+       ============================================================ */
+    function compareStates() {
+        if (selectedStates.length === 0) {
+            document.getElementById('radarCard').style.display = 'none';
+            if (chartCompare) { chartCompare.destroy(); chartCompare = null; }
+            return;
+        }
+        document.getElementById('radarCard').style.display = 'block';
+
+        const selectedData = selectedStates.map(code => {
+            const d = allData.find(p => p.code === code);
+            if (d && d.stats) {
+                return { code: d.code, nom: d.nom, stats: d.stats };
+            }
+            return null;
+        }).filter(d => d !== null);
+
+        if (selectedData.length === 0) return;
+
+        const canvas = document.getElementById('chart-compare');
+        const ctx = canvas.getContext('2d');
+        if (chartCompare) { chartCompare.destroy(); }
+
+        const labels = ['RFR moyen', 'Foyers imposés', 'RFR imposés', 'Impôt moyen'];
+        const colors = ['#2a6f97', '#dc3545', '#28a745', '#ffc107', '#6f42c1', '#fd7e14', '#20c997'];
+        
+        const datasets = selectedData.map((item, idx) => {
+            const color = colors[idx % colors.length];
+            return {
+                label: `${item.code}`,
+                data: [
+                    item.stats.rfrMoyen || 0,
+                    item.stats.tauxImposes || 0,
+                    item.stats.rfrMoyenImposes || 0,
+                    item.stats.impotMoyen || 0
+                ],
+                backgroundColor: color + '80',
+                borderColor: color,
+                borderWidth: 2
+            };
+        });
+
+        chartCompare = new Chart(ctx, {
+            type: 'bar',
+            data: { labels, datasets },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                plugins: {
+                    legend: { position: 'top', labels: { font: { size: 9 } } },
+                    tooltip: {
+                        callbacks: {
+                            label: function(ctx) {
+                                const label = ctx.dataset.label || '';
+                                const value = ctx.raw;
+                                const units = ['€', '%', '€', '€'];
+                                return label + ': ' + value.toLocaleString() + ' ' + units[ctx.dataIndex];
+                            }
+                        }
+                    }
+                },
+                scales: {
+                    x: { grid: { display: false } },
+                    y: { beginAtZero: true }
+                }
+            }
+        });
+
+        const radarCanvas = document.getElementById('chart-radar');
+        const radarCtx = radarCanvas.getContext('2d');
+        if (chartRadar) { chartRadar.destroy(); }
+
+        const radarDatasets = selectedData.map((item, idx) => {
+            const color = colors[idx % colors.length];
+            const maxRFR = Math.max(...selectedData.map(d => d.stats.rfrMoyen || 0)) || 1;
+            const maxImposes = Math.max(...selectedData.map(d => d.stats.tauxImposes || 0)) || 1;
+            const maxFoyers = Math.max(...selectedData.map(d => d.stats.nbFoyers || 0)) || 1;
+            
+            return {
+                label: item.code,
+                data: [
+                    ((item.stats.rfrMoyen || 0) / maxRFR) * 100,
+                    ((item.stats.tauxImposes || 0) / maxImposes) * 100,
+                    ((item.stats.nbFoyers || 0) / maxFoyers) * 100,
+                    item.stats.impotMoyen ? Math.min(((item.stats.impotMoyen || 0) / 5000) * 100, 100) : 0
+                ],
+                backgroundColor: color + '30',
+                borderColor: color,
+                pointBackgroundColor: color,
+                pointRadius: 4,
+            };
+        });
+
+        chartRadar = new Chart(radarCtx, {
+            type: 'radar',
+            data: {
+                labels: ['RFR moyen', 'Taux imposés', 'Nb foyers', 'Impôt moyen'],
+                datasets: radarDatasets
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                plugins: {
+                    legend: { position: 'top', labels: { font: { size: 9 } } }
+                },
+                scales: { r: { beginAtZero: true, max: 100 } }
+            }
+        });
+
+        document.getElementById('radarTitle').textContent = `📊 Radar comparatif (${selectedData.map(d=>d.code).join(', ')})`;
+    }
+
+    /* ============================================================
+       10. EXPORT DES GRAPHIQUES
+       ============================================================ */
+    function getChartImage(chart, format = 'png') {
+        let backgroundColor = null;
+        if (format === 'jpg' || format === 'jpeg') {
+            backgroundColor = '#ffffff';
+        }
+        return chart.toBase64Image({
+            format: format === 'jpg' || format === 'jpeg' ? 'jpeg' : 'png',
+            quality: 0.9,
+            backgroundColor: backgroundColor
+        });
+    }
+
+    function downloadFile(data, filename) {
+        const link = document.createElement('a');
+        link.href = data;
+        link.download = filename;
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
+    }
+
+    window.exportChart = function(format) {
+        if (!chartCompare) {
+            alert('Aucun graphique à exporter. Sélectionnez d\'abord des départements.');
+            return;
+        }
+        const imageData = getChartImage(chartCompare, format);
+        const ext = format === 'jpg' || format === 'jpeg' ? 'jpg' : format;
+        downloadFile(imageData, `comparaison_ircom.${ext}`);
+    };
+
+    window.exportRadar = function(format) {
+        if (!chartRadar) {
+            alert('Aucun radar à exporter. Sélectionnez d\'abord des départements.');
+            return;
+        }
+        const imageData = getChartImage(chartRadar, format);
+        const ext = format === 'jpg' || format === 'jpeg' ? 'jpg' : format;
+        downloadFile(imageData, `radar_ircom.${ext}`);
+    };
+
+    /* ============================================================
+       11. KPIs
+       ============================================================ */
+    function updateKPIs() {
+        if (!statsFrance) return;
+        document.getElementById('kpi-rfr-moyen').textContent = fmtEuro(statsFrance.rfrMoyen);
+        document.getElementById('kpi-taux-imposes').textContent = fmtPourcent(statsFrance.tauxImposes);
+        document.getElementById('kpi-impot-moyen').textContent = fmtMdE(statsFrance.impot);
+        document.getElementById('kpi-count').textContent = statsFrance.dep;
+    }
+
+    /* ============================================================
+       12. INITIALISATION
+       ============================================================ */
+    function afficherErreur(message) {
+        document.getElementById('error-msg').textContent = '⚠️ ' + message;
+        document.getElementById('error-msg').style.display = 'block';
+        document.getElementById('loading').style.display = 'none';
+    }
+
+    (async function () {
+        try {
+            if (typeof L === 'undefined') throw new Error("Leaflet n'a pas pu être chargé.");
+
+            texteEtat('Chargement du fond de carte…');
+            const texteGeo = await chargerTexte(CONFIG.geojson);
+            texteEtat('Lecture du GeoJSON…');
+            geojson = JSON.parse(texteGeo);
+            if (!geojson || !Array.isArray(geojson.features)) throw new Error('GeoJSON invalide.');
+            console.log('GeoJSON chargé : ' + geojson.features.length + ' features.');
+
+            texteEtat('Chargement des données IRCOM…');
+            const texteDonnees = await chargerTexte(CONFIG.donnees);
+            texteEtat('Lecture des données IRCOM…');
+            const brut = JSON.parse(texteDonnees);
+
+            texteEtat('Agrégation par département…');
+            const res = extraireEtAgreger(brut);
+            parDep = res.parDep;
+            statsFrance = res.france;
+            console.log('IRCOM : ' + res.nbLignes + ' lignes, ' + res.nbCommunes + ' communes, ' +
+                        parDep.size + ' départements.');
+
+            joindre();
+            setupControls();
+            majEchelle();
+            construireCarte();
+            majLegende();
+            updateKPIs();
+            compareStates();
+
+            document.getElementById('loading').style.display = 'none';
+            setTimeout(() => carte.invalidateSize(), 200);
+        } catch (err) {
+            console.error(err);
+            afficherErreur(err && err.message ? err.message : String(err));
+        }
+    })();
+    </script>
+</body>
+</html>
