@@ -1,51 +1,81 @@
-# 📊 IRCOM 2024 - Revenus fiscaux des foyers par département
+# 📊 IRCOM 2024 - Revenus fiscaux + Votes par département
 
-Application interactive de visualisation des données IRCOM (Impôt sur le Revenu des personnes physiques) 2024, issue de la DGFiP (Direction Générale des Finances Publiques).
+[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
+[![Made with JavaScript](https://img.shields.io/badge/Made%20with-JavaScript-blue.svg)](https://www.javascript.com/)
 
-    https://gunout.github.io/ircom-2024
+Application interactive de visualisation des données IRCOM (Impôt sur le Revenu des personnes physiques) 2024 superposées avec les résultats électoraux par département.
+
+🔗 **Lien vers l'application :** [https://gunout.github.io/ircom-2024](https://gunout.github.io/ircom-2024)
+
+---
 
 ## 🗺️ Aperçu
 
-L'application permet de visualiser et comparer les revenus fiscaux des foyers français par département à travers :
-- Une **carte choroplèthe** interactive
-- Un **système de comparaison** multi-départements
-- Des **graphiques** (barres et radar) pour analyser les écarts
-- Des **exports** d'images et de données
+L'application permet d'analyser la corrélation entre les revenus fiscaux des foyers français et les votes politiques à travers :
+
+- Une **carte choroplèthe** interactive des indicateurs IRCOM
+- Une **superposition des votes** (1er tour présidentielle 2022) par département
+- Un **système de comparaison** multi-départements avec graphiques
+- Des **graphiques de corrélation** (Impôts vs Votes)
+
+<img width="1816" height="auto" alt="Screenshot de l'application" src="https://github.com/user-attachments/assets/6f783d70-b540-488e-8f6a-ebdbd97f7430" />
+
+---
 
 ## ✨ Fonctionnalités
 
-### Carte interactive
-- Visualisation des indicateurs par département avec code couleur
-- Popups détaillés avec toutes les données IRCOM
+### 🗺️ Carte interactive
+- Visualisation des indicateurs IRCOM par département avec code couleur
+- Superposition des votes des 11 candidats du 1er tour 2022
+- Popups détaillés avec données IRCOM + résultats électoraux
 - Ajout rapide d'un département à la comparaison depuis la carte
 
-### Comparaison de départements
+### 🔍 Comparaison de départements
 - Sélection multiple via une liste déroulante
 - Affichage en temps réel des valeurs comparées
-- Graphique à barres comparatif
-- Radar comparatif pour une vue d'ensemble
+- **Graphique à barres** comparatif
+- **Radar comparatif** pour une vue d'ensemble multi-critères
 
-### Indicateurs disponibles
-- 📊 RFR moyen par foyer fiscal
-- 📈 Part des foyers imposés
-- 💰 RFR moyen des foyers imposés
-- 💳 Impôt net moyen par foyer
-- 🏛️ Impôt net total
-- 👨‍👩‍👧‍👦 Nombre de foyers fiscaux
-- 🏠 Nombre de communes
+### 📊 Indicateurs IRCOM disponibles
+| Indicateur | Description | Unité |
+|------------|-------------|-------|
+| RFR moyen | Revenu Fiscal de Référence moyen par foyer | € |
+| Taux d'imposés | Part des foyers imposés | % |
+| RFR imposés | RFR moyen des foyers imposés | € |
+| Impôt moyen | Impôt net moyen par foyer | € |
+| Impôt total | Impôt net total | Md€ |
+| Nb foyers | Nombre total de foyers fiscaux | - |
+| Nb communes | Nombre de communes | - |
 
-### Exports
+### 🗳️ Superposition des votes
+- 11 candidats du 1er tour de l'élection présidentielle 2022
+- Cercles proportionnels au pourcentage de voix
+- Sélection du candidat à afficher
+- Toggle ON/OFF pour afficher/masquer la couche
+
+### 📈 Graphiques de corrélation "Impôts vs Votes"
+- **Impôt moyen vs Votes** : Corrélation entre l'impôt moyen et le score du candidat
+- **RFR moyen vs Votes** : Corrélation entre le RFR moyen et le score du candidat
+- **Taux d'imposés vs Votes** : Corrélation entre le taux d'imposés et le score du candidat
+- Exports PNG/JPG de chaque graphique
+
+### 📤 Exports
 - PNG / JPG / SVG des graphiques de comparaison
 - PNG / JPG / SVG du radar comparatif
+- PNG / JPG des graphiques de corrélation
+
+---
 
 ## 📦 Structure du projet
-  
     ircom-2024/
     ├── index.html # Application principale
     ├── departements-5m.geojson # Contours des départements (~43 Mo)
     ├── ircom_communes_complet_revenus_2024.json # Données IRCOM (~26 Mo)
-    └── README.md # Documentation
+    ├── README.md # Documentation
+    └── LICENSE # Licence MIT
 
+
+---
 
 ## 🚀 Installation et lancement
 
@@ -63,8 +93,8 @@ L'application permet de visualiser et comparer les revenus fiscaux des foyers fr
    http://localhost:8000
    ```
 
-   📊 Données
-Source
+📊 Données
+Source IRCOM
 
     DGFiP - DESF (Direction des Études et Statistiques Fiscales)
 
@@ -72,14 +102,12 @@ Source
 
     Fichier communes complet
 
-Métriques
-Indicateur	Description	Unité
-RFR moyen	Revenu Fiscal de Référence moyen par foyer	€
-Taux d'imposés	Part des foyers imposés	%
-Impôt moyen	Impôt net moyen par foyer	€
-Impôt total	Impôt net total	Md€
-Nb foyers	Nombre total de foyers fiscaux	-
-Nb communes	Nombre de communes	-
+Source Votes
+
+    Ministère de l'Intérieur - Élection présidentielle 2022 (1er tour)
+
+    Données simulées pour la démonstration (remplaçables par les vraies données)
+
 Notes
 
     Les montants RFR sont en milliers d'euros dans le fichier source
@@ -88,6 +116,8 @@ Notes
 
     Les valeurs "n.c." (non communiquées) sont ignorées
 
+    Les votes sont simulés pour la démonstration
+
 🎨 Interface
 En-tête
 
@@ -95,64 +125,49 @@ En-tête
 
 Panneau de contrôle (à droite)
 
-    📊 Sélecteur d'indicateur
+    📊 Sélecteur d'indicateur IRCOM
+
+    🗳️ Sélection du candidat et toggle des votes
 
     🗺️ Sélection multiple des départements à comparer
 
-    🔍 Boutons "Comparer" et "Effacer"
+    🔍 Boutons "Comparer", "Effacer" et "Corrélation"
 
     📋 Légende de la carte
 
     ℹ️ Nombre de départements chargés
 
-Graphiques
+## Graphiques
 
     Barres : Comparaison des indicateurs sélectionnés
 
     Radar : Vue d'ensemble multi-critères
 
-🛠️ Technologies utilisées
+    Corrélation : 3 graphiques Impôts vs Votes (nuages de points)
 
-    Leaflet - Cartographie interactive
+## 🛠️ Technologies utilisées
+Technologie	Utilisation
+Leaflet	Cartographie interactive
+Chart.js	Graphiques et visualisations
+OpenStreetMap	Fonds de carte
+Vanilla JavaScript	Pas de framework
 
-    Chart.js - Graphiques
+## 📱 Compatibilité
 
-    OpenStreetMap - Fonds de carte
+    ✅ Ordinateurs (écran large) - Navigation optimale
 
-    Vanilla JavaScript - Pas de framework
+    ✅ Tablettes (responsive) - Interface adaptée
 
-📱 Compatibilité
-
-    ✅ Ordinateurs (écran large)
-
-    ✅ Tablettes (responsive)
-
-    ⚠️ Smartphones (partiellement compatible)
-
-
-# EXAMPLE 
-
-<img width="1816" height="892" alt="Screenshot 2026-09-08 at 05-01-42 IRCOM 2024 – Revenus fiscaux par département" src="https://github.com/user-attachments/assets/6f783d70-b540-488e-8f6a-ebdbd97f7430" />
+    ⚠️ Smartphones - Partiellement compatible (à améliorer)
 
 
-## MIT License
+## 📝 Licence  
 
-Copyright (c) 2026 
+MIT License
+
+Copyright (c) 2026 gunout
 
 Permission is hereby granted, free of charge, to any person obtaining a copy
 of this software and associated documentation files (the "Software"), to deal
-in the Software without restriction, including without limitation the rights
-to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
-copies of the Software, and to permit persons to whom the Software is
-furnished to do so, subject to the following conditions:
-
-The above copyright notice and this permission notice shall be included in all
-copies or substantial portions of the Software.
-
-THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
-IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
-FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
-AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
-LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
-OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
-SOFTWARE.
+in the Software without restriction...
+    
