@@ -2,6 +2,8 @@
 
 Application interactive de visualisation des données IRCOM (Impôt sur le Revenu des personnes physiques) 2024, issue de la DGFiP (Direction Générale des Finances Publiques).
 
+    https://gunout.github.io/ircom-2024
+
 ## 🗺️ Aperçu
 
 L'application permet de visualiser et comparer les revenus fiscaux des foyers français par département à travers :
