@@ -110,11 +110,30 @@
         
         .vote-toggle { display: flex; align-items: center; gap: 8px; font-size: 0.75rem; }
         .vote-toggle input[type="checkbox"] { width: 18px; height: 18px; cursor: pointer; }
+        
+        .progress-bar {
+            width: 100%;
+            height: 4px;
+            background: #e9edf2;
+            border-radius: 2px;
+            overflow: hidden;
+            margin-top: 8px;
+        }
+        .progress-bar .fill {
+            height: 100%;
+            background: #2a6f97;
+            width: 0%;
+            transition: width 0.3s;
+        }
     </style>
 </head>
 <body>
 
-    <div id="loading"><div class="spinner"></div><span>Chargement des données…</span></div>
+    <div id="loading">
+        <div class="spinner"></div>
+        <span id="loadingText">Chargement des données…</span>
+        <div class="progress-bar"><div class="fill" id="progressFill"></div></div>
+    </div>
     <div id="error-msg"></div>
 
     <!-- ====== EN‑TÊTE ====== -->
@@ -261,71 +280,33 @@
     const CONFIG = {
         geojson: 'departements-5m.geojson',
         donnees: 'ircom_communes_complet_revenus_2024.json',
+        votes: 'resultats-par-niveau-burvot-t1-france-entiere.txt',
         classes: 6,
         palette: ['#ffffd9', '#c7e9b4', '#7fcdbb', '#41b6c4', '#1d91c0', '#225ea8']
     };
 
-    /* ---------- Données des votes réelles (Présidentielle 2022 1er tour) ---------- */
-    // Ces données seront remplacées par le fichier votes_2022.json
-    let VOTES = [];
+    /* ---------- Mapping des candidats dans le fichier TXT ---------- */
+    // Le fichier contient des colonnes comme "N°Panneau", "Nom", "Prénom", "Voix", "% Voix/Ins"
+    // On va faire correspondre les noms aux clés utilisées dans l'application
+    const CANDIDAT_MAPPING = {
+        'MACRON': 'macron',
+        'LE PEN': 'lepen',
+        'MÉLENCHON': 'melenchon',
+        'MELENCHON': 'melenchon',
+        'ZEMMOUR': 'zemmour',
+        'PÉCRESSE': 'pecresse',
+        'PECRESSE': 'pecresse',
+        'JADOT': 'jadot',
+        'ROUSSEL': 'rousseau',
+        'LASSALLE': 'lassalle',
+        'DUPONT-AIGNAN': 'dupont-aignan',
+        'POUTOU': 'poutou',
+        'ARTHAUD': 'arthaud',
+        'HIDALGO': 'hidalgo',
+        'TAUBIRA': 'taubira'
+    };
 
-    // Fonction pour charger les données de votes depuis le fichier JSON
-    async function loadVotesData() {
-        try {
-            const response = await fetch('votes_2022.json');
-            if (!response.ok) throw new Error('Fichier votes_2022.json non trouvé');
-            VOTES = await response.json();
-            console.log(`✅ Données de votes chargées pour ${VOTES.length} départements`);
-            return true;
-        } catch (err) {
-            console.warn('⚠️ Utilisation des données simulées:', err.message);
-            VOTES = generateVotesData();
-            return false;
-        }
-    }
-
-    // Données simulées (fallback)
-    function generateVotesData() {
-        const depts = [];
-        const allDepts = [
-            '01','02','03','04','05','06','07','08','09','10','11','12','13','14','15','16','17','18','19',
-            '21','22','23','24','25','26','27','28','29','2A','2B',
-            '30','31','32','33','34','35','36','37','38','39',
-            '40','41','42','43','44','45','46','47','48','49',
-            '50','51','52','53','54','55','56','57','58','59',
-            '60','61','62','63','64','65','66','67','68','69',
-            '70','71','72','73','74','75','76','77','78','79',
-            '80','81','82','83','84','85','86','87','88','89',
-            '90','91','92','93','94','95',
-            '971','972','973','974','976'
-        ];
-        
-        for (const code of allDepts) {
-            const baseRN = 20 + Math.random() * 15;
-            const baseMacron = 22 + Math.random() * 12;
-            const baseMelenchon = 15 + Math.random() * 10;
-            const total = baseRN + baseMacron + baseMelenchon;
-            const rest = Math.max(0, 100 - total);
-            
-            depts.push({
-                dep: code,
-                macron: Math.min(45, baseMacron),
-                lepen: Math.min(50, baseRN),
-                melenchon: Math.min(40, baseMelenchon),
-                zemmour: Math.min(15, rest * 0.25 + Math.random() * 3),
-                pecresse: Math.min(15, rest * 0.22 + Math.random() * 3),
-                jadot: Math.min(12, rest * 0.15 + Math.random() * 2),
-                rousseau: Math.min(10, rest * 0.12 + Math.random() * 2),
-                lassalle: Math.min(8, rest * 0.10 + Math.random() * 2),
-                "dupont-aignan": Math.min(7, rest * 0.08 + Math.random() * 2),
-                poutou: Math.min(5, rest * 0.05 + Math.random() * 1),
-                arthaud: Math.min(3, rest * 0.03 + Math.random() * 1)
-            });
-        }
-        return depts;
-    }
-
-    /* ---------- état global ---------- */
+    /* ---------- État global ---------- */
     let carte = null, couche = null, coucheVotes = null, geojson = null;
     let parDep = new Map();
     let statsFrance = null;
@@ -341,6 +322,7 @@
     let chartVoteTaux = null;
     let showVotes = true;
     let voteCandidat = 'lepen';
+    let VOTES = [];
     let votesLoaded = false;
 
     const REGEX_CODE_DEP = /^(0[1-9]|[1-9]\d|2[AB]|9[7-8]\d)$/;
@@ -356,7 +338,9 @@
         'lassalle': 'Jean Lassalle (RES)',
         'dupont-aignan': 'Nicolas Dupont-Aignan (DLF)',
         'poutou': 'Philippe Poutou (NPA)',
-        'arthaud': 'Nathalie Arthaud (LO)'
+        'arthaud': 'Nathalie Arthaud (LO)',
+        'hidalgo': 'Anne Hidalgo (PS)',
+        'taubira': 'Christiane Taubira (DVG)'
     };
 
     const CANDIDAT_COLORS = {
@@ -370,7 +354,9 @@
         'lassalle': '#FDCB6E',
         'dupont-aignan': '#A29BFE',
         'poutou': '#FD79A8',
-        'arthaud': '#DFE6E9'
+        'arthaud': '#DFE6E9',
+        'hidalgo': '#E84393',
+        'taubira': '#FDCB6E'
     };
 
     /* ============================================================
@@ -441,7 +427,13 @@
     /* ============================================================
        3. CHARGEMENT DES FICHIERS
        ============================================================ */
-    function texteEtat(msg) { document.getElementById('loading').querySelector('span').textContent = msg; }
+    function texteEtat(msg) {
+        document.getElementById('loadingText').textContent = msg;
+    }
+
+    function setProgress(pct) {
+        document.getElementById('progressFill').style.width = pct + '%';
+    }
 
     async function chargerTexte(url) {
         const rep = await fetch(url);
@@ -452,17 +444,349 @@
     }
 
     /* ============================================================
-       4. EXTRAITON DU JSON IRCOM
+       4. PARSING DU FICHIER DE VOTES (TXT/CSV)
+       ============================================================ */
+    function parseVotesTxt(txt) {
+        console.log('📄 Parsing du fichier de votes...');
+        console.log('Taille du fichier:', txt.length, 'caractères');
+
+        // Détecter le séparateur (tabulation, point-virgule ou virgule)
+        const firstLines = txt.split('\n').slice(0, 5).join('\n');
+        let separator = ';';
+        if (firstLines.includes('\t')) separator = '\t';
+        else if (firstLines.includes(';')) separator = ';';
+        else if (firstLines.includes(',')) separator = ',';
+
+        console.log('Séparateur détecté:', separator === '\t' ? 'TAB' : separator);
+
+        // Parser les lignes
+        const lines = txt.split('\n').filter(l => l.trim().length > 0);
+        console.log('Nombre de lignes:', lines.length);
+
+        if (lines.length < 2) {
+            throw new Error('Fichier de votes vide ou invalide');
+        }
+
+        // Parser l'en-tête
+        const header = lines[0].split(separator).map(h => h.trim().replace(/^"|"$/g, ''));
+        console.log('En-tête:', header.slice(0, 20));
+
+        // Trouver les indices des colonnes importantes
+        const colIdx = {
+            codeDep: -1,
+            libelleDep: -1,
+            codeBv: -1,
+            libelleBv: -1,
+            inscrits: -1,
+            votants: -1,
+            blancs: -1,
+            nuls: -1,
+            exprimes: -1
+        };
+
+        // Chercher les colonnes de base
+        header.forEach((h, i) => {
+            const hNorm = h.toLowerCase()
+                .normalize('NFD').replace(/[\u0300-\u036f]/g, '')
+                .replace(/[^a-z0-9]/g, '');
+            
+            if (hNorm.includes('codedudepartement') || hNorm.includes('codedepartement') || hNorm === 'codedep') colIdx.codeDep = i;
+            if (hNorm.includes('libelledudepartement') || hNorm.includes('libelledepartement') || hNorm === 'libelledep') colIdx.libelleDep = i;
+            if (hNorm.includes('codebureau') || hNorm.includes('codebv') || hNorm === 'codebureaudevote') colIdx.codeBv = i;
+            if (hNorm.includes('libellebureau') || hNorm.includes('libellebv') || hNorm === 'libellebureaudevote') colIdx.libelleBv = i;
+            if (hNorm === 'inscrits' || hNorm.includes('inscrits')) colIdx.inscrits = i;
+            if (hNorm === 'votants' || hNorm.includes('votants')) colIdx.votants = i;
+            if (hNorm === 'blancs' || hNorm.includes('blancs')) colIdx.blancs = i;
+            if (hNorm === 'nuls' || hNorm.includes('nuls')) colIdx.nuls = i;
+            if (hNorm === 'exprimes' || hNorm.includes('exprimes')) colIdx.exprimes = i;
+        });
+
+        console.log('Indices des colonnes de base:', colIdx);
+
+        // Trouver les colonnes des candidats
+        // Le fichier a généralement des colonnes "Nom" et "% Voix/Ins" ou "Voix" pour chaque candidat
+        const candidatColumns = [];
+        
+        // Méthode 1 : Chercher les colonnes avec "Nom" et "Prénom"
+        const nomIdx = header.findIndex(h => h.toLowerCase().trim() === 'nom');
+        const prenomIdx = header.findIndex(h => h.toLowerCase().trim() === 'prenom' || h.toLowerCase().trim() === 'prénom');
+        const voixIdx = header.findIndex(h => h.toLowerCase().trim() === 'voix');
+        
+        console.log('Colonnes Nom/Prénom/Voix:', { nomIdx, prenomIdx, voixIdx });
+
+        // Si on a trouvé les colonnes de candidats, les utiliser
+        if (nomIdx >= 0 && voixIdx >= 0) {
+            // Pour chaque ligne, on va extraire les candidats
+            // Dans ce format, chaque ligne a plusieurs paires (Nom, Prénom, Voix, %)
+            // On va chercher toutes les colonnes qui contiennent "Nom" ou "Voix"
+            header.forEach((h, i) => {
+                const hLower = h.toLowerCase().trim();
+                if (hLower === 'nom' || hLower === 'voix' || hLower === '% voix/ins' || 
+                    hLower === '% voix/exp' || hLower.includes('nuance')) {
+                    // Colonne de candidat
+                }
+            });
+        }
+
+        // Méthode 2 : Chercher les colonnes par nom de candidat
+        const candidateNames = [
+            'MACRON', 'LE PEN', 'MÉLENCHON', 'MELENCHON', 'ZEMMOUR', 'PÉCRESSE', 'PECRESSE',
+            'JADOT', 'ROUSSEL', 'LASSALLE', 'DUPONT-AIGNAN', 'POUTOU', 'ARTHAUD', 'HIDALGO', 'TAUBIRA'
+        ];
+
+        header.forEach((h, i) => {
+            const hUpper = h.toUpperCase().trim();
+            for (const name of candidateNames) {
+                if (hUpper.includes(name) || hUpper.includes(name.replace(' ', ''))) {
+                    candidatColumns.push({
+                        index: i,
+                        name: name,
+                        key: CANDIDAT_MAPPING[name] || name.toLowerCase().replace(/[^a-z]/g, '')
+                    });
+                    break;
+                }
+            }
+        });
+
+        console.log('Colonnes de candidats trouvées:', candidatColumns);
+
+        // Si aucune colonne de candidat trouvée, essayer une autre approche
+        // (le fichier peut avoir des colonnes "Nom" et "Voix" répétées)
+        if (candidatColumns.length === 0) {
+            console.log('⚠️ Aucune colonne de candidat trouvée par nom, essai par position...');
+            
+            // Chercher toutes les colonnes qui pourraient être des noms de candidats
+            // Dans le fichier BURVOT, les colonnes sont généralement:
+            // Code du département, Libellé du département, Code de la commune, Libellé de la commune,
+            // Code du bureau de vote, Libellé du bureau de vote, Inscrits, Votants, Blancs, Nuls, Exprimés,
+            // Puis pour chaque candidat: N°Panneau, Nom, Prénom, Nuance, Voix, % Voix/Ins, % Voix/Exp
+        
+            // Trouver les colonnes "Nom" et "Voix" (il peut y en avoir plusieurs)
+            const nomIndices = [];
+            const voixIndices = [];
+            header.forEach((h, i) => {
+                const hLower = h.toLowerCase().trim();
+                if (hLower === 'nom') nomIndices.push(i);
+                if (hLower === 'voix') voixIndices.push(i);
+            });
+
+            console.log('Indices "Nom":', nomIndices);
+            console.log('Indices "Voix":', voixIndices);
+
+            // Faire correspondre les noms aux voix
+            // Pour chaque colonne "Nom", la colonne "Voix" correspondante est à +2 ou +3
+            nomIndices.forEach((nomIdx, idx) => {
+                if (idx < voixIndices.length) {
+                    const voixIdx = voixIndices[idx];
+                    candidatColumns.push({
+                        index: voixIdx,
+                        nameIndex: nomIdx,
+                        name: 'Candidat ' + (idx + 1),
+                        key: 'candidat' + (idx + 1)
+                    });
+                }
+            });
+        }
+
+        // Si toujours rien, utiliser les colonnes 11 à 22 (positions standard)
+        if (candidatColumns.length === 0) {
+            console.log('⚠️ Utilisation des positions standard pour les candidats...');
+            for (let i = 11; i <= 22 && i < header.length; i++) {
+                if (i % 3 === 2) { // Les colonnes "Voix" sont généralement à des positions spécifiques
+                    candidatColumns.push({
+                        index: i,
+                        name: 'Candidat ' + Math.floor((i - 11) / 3 + 1),
+                        key: 'candidat' + Math.floor((i - 11) / 3 + 1)
+                    });
+                }
+            }
+        }
+
+        console.log('Colonnes finales de candidats:', candidatColumns);
+
+        // Agréger les votes par département
+        const depVotes = new Map();
+
+        // Traiter chaque ligne
+        let processedLines = 0;
+        for (let i = 1; i < lines.length; i++) {
+            const cols = lines[i].split(separator).map(c => c.trim().replace(/^"|"$/g, ''));
+            
+            if (cols.length < 10) continue;
+
+            // Récupérer le code du département
+            let dep = null;
+            if (colIdx.codeDep >= 0 && cols[colIdx.codeDep]) {
+                dep = normaliserDep(cols[colIdx.codeDep]);
+            } else if (colIdx.libelleDep >= 0 && cols[colIdx.libelleDep]) {
+                // Essayer d'extraire le code depuis le libellé
+                const match = cols[colIdx.libelleDep].match(/^(\d{2,3}|2[AB])/);
+                if (match) dep = normaliserDep(match[1]);
+            }
+
+            if (!dep || !REGEX_CODE_DEP.test(dep)) continue;
+
+            // Initialiser le département
+            if (!depVotes.has(dep)) {
+                depVotes.set(dep, {
+                    dep: dep,
+                    totalInscrits: 0,
+                    totalVotants: 0,
+                    totalBlancs: 0,
+                    totalNuls: 0,
+                    totalExprimes: 0,
+                    nbBureaux: 0,
+                    candidats: {}
+                });
+            }
+
+            const d = depVotes.get(dep);
+            d.nbBureaux++;
+
+            // Récupérer les inscrits et votants
+            if (colIdx.inscrits >= 0 && cols[colIdx.inscrits]) {
+                d.totalInscrits += enNombre(cols[colIdx.inscrits]) || 0;
+            }
+            if (colIdx.votants >= 0 && cols[colIdx.votants]) {
+                d.totalVotants += enNombre(cols[colIdx.votants]) || 0;
+            }
+            if (colIdx.blancs >= 0 && cols[colIdx.blancs]) {
+                d.totalBlancs += enNombre(cols[colIdx.blancs]) || 0;
+            }
+            if (colIdx.nuls >= 0 && cols[colIdx.nuls]) {
+                d.totalNuls += enNombre(cols[colIdx.nuls]) || 0;
+            }
+            if (colIdx.exprimes >= 0 && cols[colIdx.exprimes]) {
+                d.totalExprimes += enNombre(cols[colIdx.exprimes]) || 0;
+            }
+
+            // Récupérer les votes pour chaque candidat
+            candidatColumns.forEach((cand, idx) => {
+                const voix = enNombre(cols[cand.index]) || 0;
+                // Utiliser la clé du candidat
+                const key = cand.key;
+                if (!d.candidats[key]) {
+                    d.candidats[key] = 0;
+                }
+                d.candidats[key] += voix;
+            });
+
+            processedLines++;
+        }
+
+        console.log('Lignes traitées:', processedLines);
+        console.log('Départements trouvés:', depVotes.size);
+
+        if (depVotes.size === 0) {
+            throw new Error('Aucun département trouvé dans le fichier de votes');
+        }
+
+        // Convertir en pourcentages par département
+        const result = [];
+        for (const [dep, d] of depVotes) {
+            const totalExprimes = d.totalExprimes || d.totalVotants - d.totalBlancs - d.totalNuls;
+            if (totalExprimes <= 0) continue;
+
+            const entry = { dep: dep };
+            
+            // Calculer les pourcentages pour chaque candidat
+            for (const [key, voix] of Object.entries(d.candidats)) {
+                entry[key] = (voix / totalExprimes) * 100;
+            }
+
+            // Ajouter les métadonnées
+            entry._inscrits = d.totalInscrits;
+            entry._votants = d.totalVotants;
+            entry._exprimes = totalExprimes;
+            entry._bureaux = d.nbBureaux;
+            entry._participation = d.totalInscrits > 0 ? (d.totalVotants / d.totalInscrits) * 100 : 0;
+
+            result.push(entry);
+        }
+
+        console.log('✅ Données de votes agrégées pour', result.length, 'départements');
+        return result;
+    }
+
+    /* ============================================================
+       5. CHARGEMENT DES VOTES
+       ============================================================ */
+    async function loadVotesData() {
+        try {
+            texteEtat('Chargement du fichier de votes…');
+            setProgress(10);
+            
+            const txt = await chargerTexte(CONFIG.votes);
+            setProgress(30);
+            
+            texteEtat('Parsing des résultats électoraux…');
+            const parsed = parseVotesTxt(txt);
+            setProgress(50);
+            
+            VOTES = parsed;
+            votesLoaded = true;
+            console.log(`✅ ${VOTES.length} départements avec résultats de votes`);
+            return true;
+        } catch (err) {
+            console.warn('⚠️ Erreur chargement votes:', err.message);
+            console.warn('Utilisation de données simulées');
+            VOTES = generateVotesData();
+            votesLoaded = false;
+            return false;
+        }
+    }
+
+    // Données simulées (fallback si le fichier n'est pas trouvé)
+    function generateVotesData() {
+        const depts = [];
+        const allDepts = [
+            '01','02','03','04','05','06','07','08','09','10','11','12','13','14','15','16','17','18','19',
+            '21','22','23','24','25','26','27','28','29','2A','2B',
+            '30','31','32','33','34','35','36','37','38','39',
+            '40','41','42','43','44','45','46','47','48','49',
+            '50','51','52','53','54','55','56','57','58','59',
+            '60','61','62','63','64','65','66','67','68','69',
+            '70','71','72','73','74','75','76','77','78','79',
+            '80','81','82','83','84','85','86','87','88','89',
+            '90','91','92','93','94','95',
+            '971','972','973','974','976'
+        ];
+        
+        for (const code of allDepts) {
+            const baseRN = 20 + Math.random() * 15;
+            const baseMacron = 22 + Math.random() * 12;
+            const baseMelenchon = 15 + Math.random() * 10;
+            const total = baseRN + baseMacron + baseMelenchon;
+            const rest = Math.max(0, 100 - total);
+            
+            depts.push({
+                dep: code,
+                macron: Math.min(45, baseMacron),
+                lepen: Math.min(50, baseRN),
+                melenchon: Math.min(40, baseMelenchon),
+                zemmour: Math.min(15, rest * 0.25 + Math.random() * 3),
+                pecresse: Math.min(15, rest * 0.22 + Math.random() * 3),
+                jadot: Math.min(12, rest * 0.15 + Math.random() * 2),
+                rousseau: Math.min(10, rest * 0.12 + Math.random() * 2),
+                lassalle: Math.min(8, rest * 0.10 + Math.random() * 2),
+                "dupont-aignan": Math.min(7, rest * 0.08 + Math.random() * 2),
+                poutou: Math.min(5, rest * 0.05 + Math.random() * 1),
+                arthaud: Math.min(3, rest * 0.03 + Math.random() * 1)
+            });
+        }
+        return depts;
+    }
+
+    /* ============================================================
+       6. EXTRACTION DU JSON IRCOM
        ============================================================ */
     function extraireEtAgreger(brut) {
         if (!Array.isArray(brut)) throw new Error("Le fichier IRCOM n'est pas un tableau JSON.");
         if (brut.length === 0) throw new Error("Le fichier IRCOM est vide.");
 
-        // Structure connue du fichier IRCOM
         let headerRow = null;
         let dataStart = 0;
         
-        // L'en-tête est généralement à la ligne 2
         if (brut[2] && typeof brut[2] === 'object') {
             headerRow = brut[2];
             dataStart = 4;
@@ -486,7 +810,6 @@
 
         const headerKeys = Object.keys(headerRow);
         
-        // Mapping des colonnes par position
         const col = {
             dep: headerKeys[0],
             com: headerKeys[1],
@@ -578,7 +901,7 @@
     }
 
     /* ============================================================
-       5. JOINTURE GEOJSON ↔ DONNÉES
+       7. JOINTURE GEOJSON ↔ DONNÉES
        ============================================================ */
     function lireCodeDept(props) {
         if (cleCodeGeo != null && props[cleCodeGeo] != null) {
@@ -650,7 +973,7 @@
     }
 
     /* ============================================================
-       6. CARTE
+       8. CARTE
        ============================================================ */
     function construireCarte() {
         carte = L.map('map', { preferCanvas: true, center: [46.6, 2.4], zoom: 6 });
@@ -669,7 +992,7 @@
     }
 
     /* ============================================================
-       7. STYLE DE LA CARTE
+       9. STYLE DE LA CARTE
        ============================================================ */
     function classeDe(v) {
         let i = 0;
@@ -695,7 +1018,7 @@
     }
 
     /* ============================================================
-       8. COUCHE DES VOTES
+       10. COUCHE DES VOTES
        ============================================================ */
     function ajouterVotes() {
         if (coucheVotes) {
@@ -750,7 +1073,7 @@
     }
 
     /* ============================================================
-       9. INTERACTIONS
+       11. INTERACTIONS
        ============================================================ */
     function configurerInteractions(feature, layer) {
         layer.on({
@@ -800,19 +1123,29 @@
                 <div style="display:grid; grid-template-columns:1fr 1fr; gap:1px 8px; font-size:0.7rem;">`;
             
             const topCandidates = Object.entries(votes)
-                .filter(([k]) => k !== 'dep')
+                .filter(([k]) => k !== 'dep' && !k.startsWith('_'))
                 .sort((a, b) => b[1] - a[1])
                 .slice(0, 5);
             
             for (const [candidat, value] of topCandidates) {
                 const color = CANDIDAT_COLORS[candidat] || '#999';
+                const label = CANDIDAT_LABELS[candidat] || candidat;
                 popupContent += `
-                    <div style="color:#6b7a8a;">${CANDIDAT_LABELS[candidat]}</div>
+                    <div style="color:#6b7a8a;">${label}</div>
                     <div style="font-weight:600; text-align:right; color:${color};">${value.toFixed(1)}%</div>
                 `;
             }
             
-            popupContent += `</div></div>`;
+            popupContent += `</div>`;
+            
+            // Ajouter les métadonnées
+            if (votes._participation) {
+                popupContent += `<div style="margin-top:4px; font-size:0.65rem; color:#6b7a8a;">
+                    Participation: ${votes._participation.toFixed(1)}% · ${fmtEntier(votes._bureaux)} bureaux
+                </div>`;
+            }
+            
+            popupContent += `</div>`;
         }
         
         popupContent += `
@@ -825,7 +1158,7 @@
     }
 
     /* ============================================================
-       10. CLASSIFICATION ET LÉGENDE
+       12. CLASSIFICATION ET LÉGENDE
        ============================================================ */
     function majEchelle() {
         const ind = INDICATEURS[indicateurCourant];
@@ -864,7 +1197,7 @@
     }
 
     /* ============================================================
-       11. SÉLECTEUR ET COMPARAISON
+       13. SÉLECTEUR ET COMPARAISON
        ============================================================ */
     function populateSelect() {
         const select = document.getElementById('stateSelect');
@@ -956,7 +1289,7 @@
     }
 
     /* ============================================================
-       12. COMPARAISON AVEC GRAPHIQUES
+       14. COMPARAISON AVEC GRAPHIQUES
        ============================================================ */
     function compareStates() {
         if (selectedStates.length === 0) {
@@ -1070,10 +1403,13 @@
     }
 
     /* ============================================================
-       13. GRAPHIQUES IMPÔTS VS VOTES
+       15. GRAPHIQUES IMPÔTS VS VOTES
        ============================================================ */
     function updateVoteCharts() {
-        if (VOTES.length === 0) return;
+        if (VOTES.length === 0) {
+            console.warn('⚠️ Aucune donnée de vote disponible');
+            return;
+        }
         
         const depts = selectedStates.length > 0 ? selectedStates : allData.map(d => d.code);
         
@@ -1081,19 +1417,25 @@
             const ircom = allData.find(d => d.code === code);
             const votes = VOTES.find(v => v.dep === code);
             if (ircom && ircom.stats && votes && ircom.stats.rfrMoyen !== null) {
+                const voteValue = votes[voteCandidat] || 0;
                 return {
                     code: code,
                     nom: ircom.nom,
                     impotMoyen: ircom.stats.impotMoyen || 0,
                     rfrMoyen: ircom.stats.rfrMoyen || 0,
                     tauxImposes: ircom.stats.tauxImposes || 0,
-                    vote: votes[voteCandidat] || 0
+                    vote: voteValue
                 };
             }
             return null;
         }).filter(d => d !== null && d.vote > 0);
 
-        if (data.length === 0) return;
+        console.log(`📊 ${data.length} départements pour les graphiques de corrélation`);
+
+        if (data.length === 0) {
+            console.warn('⚠️ Aucune donnée à afficher');
+            return;
+        }
 
         // Graphique 1 : Impôt moyen vs Votes
         const canvas1 = document.getElementById('chart-vote-impot');
@@ -1226,7 +1568,7 @@
     }
 
     /* ============================================================
-       14. EXPORT DES GRAPHIQUES
+       16. EXPORT DES GRAPHIQUES
        ============================================================ */
     function getChartImage(chart, format = 'png') {
         let backgroundColor = null;
@@ -1300,7 +1642,7 @@
     };
 
     /* ============================================================
-       15. KPIs
+       17. KPIs
        ============================================================ */
     function updateKPIs() {
         if (!statsFrance) return;
@@ -1311,7 +1653,7 @@
     }
 
     /* ============================================================
-       16. INITIALISATION
+       18. INITIALISATION
        ============================================================ */
     function afficherErreur(message) {
         document.getElementById('error-msg').textContent = '⚠️ ' + message;
@@ -1323,16 +1665,22 @@
         try {
             if (typeof L === 'undefined') throw new Error("Leaflet n'a pas pu être chargé.");
 
-            texteEtat('Chargement des données de votes…');
+            // 1. Charger les votes depuis le fichier TXT
+            texteEtat('Chargement des résultats électoraux…');
+            setProgress(10);
             await loadVotesData();
+            setProgress(40);
 
+            // 2. Charger le fond de carte
             texteEtat('Chargement du fond de carte…');
             const texteGeo = await chargerTexte(CONFIG.geojson);
             texteEtat('Lecture du GeoJSON…');
             geojson = JSON.parse(texteGeo);
             if (!geojson || !Array.isArray(geojson.features)) throw new Error('GeoJSON invalide.');
             console.log('GeoJSON chargé : ' + geojson.features.length + ' features.');
+            setProgress(60);
 
+            // 3. Charger les données IRCOM
             texteEtat('Chargement des données IRCOM…');
             const texteDonnees = await chargerTexte(CONFIG.donnees);
             texteEtat('Lecture des données IRCOM…');
@@ -1343,7 +1691,9 @@
             parDep = res.parDep;
             statsFrance = res.france;
             console.log('IRCOM : ' + res.nbLignes + ' lignes, ' + parDep.size + ' départements.');
+            setProgress(80);
 
+            // 4. Joindre les données
             joindre();
             setupControls();
             majEchelle();
@@ -1352,9 +1702,15 @@
             updateKPIs();
             compareStates();
             updateVoteCharts();
+            setProgress(100);
 
             document.getElementById('loading').style.display = 'none';
             setTimeout(() => carte.invalidateSize(), 200);
+            
+            console.log('✅ Application chargée avec succès');
+            console.log(`📊 ${VOTES.length} départements avec votes`);
+            console.log(`📊 ${allData.length} départements avec IRCOM`);
+            
         } catch (err) {
             console.error(err);
             afficherErreur(err && err.message ? err.message : String(err));
